@@ -91,11 +91,68 @@ const TetrisGame = () => {
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [blockSize, setBlockSize] = useState<number>(25);
-  const [isLandscape, setIsLandscape] = useState<boolean>(false);
   const [viewportHeight, setViewportHeight] = useState<number>(0);
+  const [clearingRows, setClearingRows] = useState<number[]>([]);
+  const [animationColumn, setAnimationColumn] = useState<number>(-1);
+  const [isClearing, setIsClearing] = useState<boolean>(false);
 
   const gameLoopRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const dropTimeRef = useRef<number>(1000);
+
+  // Sound refs
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
+  const moveSoundRef = useRef<HTMLAudioElement | null>(null);
+  const rotateSoundRef = useRef<HTMLAudioElement | null>(null);
+  const lineClearSoundRef = useRef<HTMLAudioElement | null>(null);
+  const hardDropSoundRef = useRef<HTMLAudioElement | null>(null);
+  const collapseSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    bgmRef.current = new Audio('/sound/tetris_BGM.mp3');
+    bgmRef.current.loop = true;
+    bgmRef.current.volume = 0.5; // Adjust volume as needed
+
+    moveSoundRef.current = new Audio('/sound/move.mp3');
+    rotateSoundRef.current = new Audio('/sound/rotate.mp3');
+    lineClearSoundRef.current = new Audio('/sound/lineClear.mp3');
+    hardDropSoundRef.current = new Audio('/sound/hardDrop.mp3');
+    collapseSoundRef.current = new Audio('/sound/collapse.mp3');
+
+    return () => {
+      bgmRef.current?.pause();
+      bgmRef.current = null;
+      moveSoundRef.current = null;
+      rotateSoundRef.current = null;
+      lineClearSoundRef.current = null;
+      hardDropSoundRef.current = null;
+      collapseSoundRef.current = null;
+    };
+  }, []);
+
+  // Sound play functions
+  const playSound = useCallback((audioRef: React.MutableRefObject<HTMLAudioElement | null>) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(e => console.error("Error playing sound:", e));
+    }
+  }, []);
+
+  const playBGM = useCallback(() => {
+    if (bgmRef.current && !isPaused && gameStarted) {
+      bgmRef.current.play().catch(e => console.error("Error playing BGM:", e));
+    }
+  }, [isPaused, gameStarted]);
+
+  const stopBGM = useCallback(() => {
+    bgmRef.current?.pause();
+  }, []);
+
+  const resetBGM = useCallback(() => {
+    if (bgmRef.current) {
+      bgmRef.current.pause();
+      bgmRef.current.currentTime = 0; // Rewind for next play
+    }
+  }, []);
 
   // 뷰포트 높이 계산 (더 정확한 방법)
   const getViewportHeight = useCallback(() => {
@@ -107,24 +164,21 @@ const TetrisGame = () => {
     const calculateLayout = () => {
       const vw = window.innerWidth;
       const vh = getViewportHeight();
-      const newIsLandscape = vw > vh;
-      
-      setIsLandscape(newIsLandscape);
-      setViewportHeight(vh);
 
       // 안전 여백 (상태바, 노치 등을 고려)
-      const safeTop = 40; // 상태바 등
-      const safeBottom = newIsLandscape ? 20 : 60; // 네비게이션 바 등
+      const safeTop = 40;
+      const safeBottom = 60; // 모바일 컨트롤이 항상 하단에 있으므로 고정
       
       // UI 요소들의 예상 높이
-      const titleHeight = 60; // 제목
+      const titleHeight = 60;
       const headerHeight = 50; // 점수 표시
-      const controlsHeight = newIsLandscape ? 0 : 120; // 모바일 컨트롤
+      const controlsHeight = 120; // 모바일 컨트롤 (항상 표시)
       const padding = 16;
       
       // 사용 가능한 공간 계산
+      // 가로 모드 고려 없이 세로 모드에만 맞춰 계산
       const availableHeight = vh - safeTop - safeBottom - titleHeight - headerHeight - controlsHeight - (padding * 2);
-      const availableWidth = newIsLandscape ? vw * 0.6 : vw - (padding * 2); // 가로모드에서는 60% 사용
+      const availableWidth = vw - (padding * 2); 
       
       // 블록 크기 계산 (더 보수적으로)
       const widthBasedSize = Math.floor(availableWidth / BOARD_WIDTH);
@@ -138,35 +192,17 @@ const TetrisGame = () => {
 
     calculateLayout();
     
-    // 리사이즈 이벤트들
     const handleResize = () => {
-      // 약간의 딜레이를 주어 브라우저가 완전히 리사이즈된 후 계산
-      setTimeout(calculateLayout, 100);
-    };
-
-    const handleOrientationChange = () => {
-      // 오리엔테이션 변경 시 더 긴 딜레이
-      setTimeout(calculateLayout, 300);
-    };
-
-    const handleVisualViewportChange = () => {
-      // 가상 키보드 등으로 인한 뷰포트 변경
       setTimeout(calculateLayout, 100);
     };
 
     window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleOrientationChange);
-    
-    // Visual Viewport API 지원 시 사용
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleVisualViewportChange);
     }
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleOrientationChange);
       if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
       }
     };
   }, [getViewportHeight]);
@@ -215,6 +251,7 @@ const TetrisGame = () => {
     if (checkCollision(initialPiece, newBoard, 0, 1)) {
       setGameOver(true);
       setGameStarted(false);
+      resetBGM(); // Use resetBGM on immediate game over
       return;
     }
 
@@ -226,7 +263,8 @@ const TetrisGame = () => {
     setGameOver(false);
     setGameStarted(true);
     dropTimeRef.current = 1000;
-  }, [createRandomTetromino, checkCollision]);
+    playBGM(); // Start BGM on game start
+  }, [createRandomTetromino, checkCollision, playBGM, resetBGM]);
 
   // 블록 회전
   const rotatePiece = useCallback((piece: Tetromino | null): Tetromino | null => {
@@ -237,21 +275,22 @@ const TetrisGame = () => {
     return { ...piece, shape: rotated };
   }, []);
 
-  // 라인 삭제 검사
-  const clearLines = useCallback((boardState: (number | string)[][]): { board: (number | string)[][], clearedCount: number } => {
-    const newBoard = [...boardState];
-    let clearedCount = 0;
-    
+  // 라인 삭제 검사 (이제 지워질 라인들을 반환만 함)
+  const getClearedLines = useCallback((boardState: (number | string)[][]): number[] => {
+    const clearedLineYs: number[] = [];
     for (let y = BOARD_HEIGHT - 1; y >= 0; y--) {
-      if (newBoard[y].every(cell => cell !== 0)) {
-        newBoard.splice(y, 1);
-        newBoard.unshift(Array(BOARD_WIDTH).fill(0));
-        clearedCount++;
-        y++; // 같은 라인을 다시 체크
+      if (boardState[y].every(cell => cell !== 0)) {
+        clearedLineYs.push(y);
       }
     }
-    
-    return { board: newBoard, clearedCount };
+    return clearedLineYs;
+  }, []);
+
+  // 실제로 라인을 제거하고 보드를 아래로 내림
+  const removeAndShiftLines = useCallback((boardState: (number | string)[][], linesToRemove: number[]) => {
+    const newBoard = boardState.filter((_, y) => !linesToRemove.includes(y));
+    const newEmptyRows = Array(linesToRemove.length).fill(0).map(() => Array(BOARD_WIDTH).fill(0));
+    return [...newEmptyRows, ...newBoard];
   }, []);
 
   // 블록을 보드에 고정
@@ -280,8 +319,8 @@ const TetrisGame = () => {
     let dx = 0, dy = 0;
     
     switch (direction) {
-      case 'left': dx = -1; break;
-      case 'right': dx = 1; break;
+      case 'left': dx = -1; playSound(moveSoundRef); break; // Play move sound
+      case 'right': dx = 1; playSound(moveSoundRef); break; // Play move sound
       case 'down': dy = 1; break;
     }
     
@@ -292,75 +331,84 @@ const TetrisGame = () => {
         y: (prev as Tetromino).y + dy
       }));
     } else if (direction === 'down') {
+      playSound(collapseSoundRef); // Play collapse sound when piece lands
       const newBoard = placePiece(currentPiece, board);
-      const { board: clearedBoard, clearedCount } = clearLines(newBoard);
+      const clearedLineYs = getClearedLines(newBoard);
       
-      setBoard(clearedBoard);
-      
-      if (clearedCount > 0) {
-        const points = [0, 40, 100, 300, 1200][clearedCount] * level;
-        setScore(prev => prev + points);
-        setLines(prev => {
-          const newLines = prev + clearedCount;
-          const newLevel = Math.floor(newLines / 10) + 1;
-          setLevel(newLevel);
-          dropTimeRef.current = Math.max(50, 1000 - (newLevel - 1) * 100);
-          return newLines;
-        });
+      if (clearedLineYs.length > 0) {
+        // Start line clear animation
+        setClearingRows(clearedLineYs);
+        setAnimationColumn(-1); // Reset animation column
+        setIsClearing(true); // Indicate that clearing animation is in progress
+        // Game logic for score/lines/level will be handled after animation
+      } else {
+        // No lines to clear, proceed as usual
+        setBoard(newBoard);
+        if (currentPiece.y <= 1) {
+          setGameOver(true);
+          setGameStarted(false);
+          resetBGM();
+          return;
+        }
+        setCurrentPiece(nextPiece);
+        setNextPiece(createRandomTetromino());
       }
-
-      if (currentPiece.y <= 1) {
-        setGameOver(true);
-        setGameStarted(false);
-        return;
-      }
-      
-      setCurrentPiece(nextPiece);
-      setNextPiece(createRandomTetromino());
     }
-  }, [currentPiece, board, gameOver, isPaused, checkCollision, placePiece, clearLines, nextPiece, createRandomTetromino, level]);
+  }, [currentPiece, board, gameOver, isPaused, checkCollision, placePiece, getClearedLines, nextPiece, createRandomTetromino, playSound, resetBGM, setClearingRows, setAnimationColumn, setIsClearing]);
 
   // 하드 드롭
   const hardDrop = useCallback(() => {
     if (!currentPiece || gameOver || isPaused) return;
-    
+
+    playSound(hardDropSoundRef);
+
     let dropDistance = 0;
     while (!checkCollision(currentPiece, board, 0, dropDistance + 1)) {
-      dropDistance++;
+        dropDistance++;
     }
-    
-    const droppedPiece: Tetromino = {
-      ...(currentPiece as Tetromino),
-      y: currentPiece.y + dropDistance
+
+    const finalY = currentPiece.y + dropDistance;
+
+    // Animation variables
+    let currentAnimatedPiece: Tetromino = { ...currentPiece };
+    let scoreAccumulated = 0;
+
+    const animateStep = () => {
+        if (currentAnimatedPiece.y < finalY) {
+            currentAnimatedPiece = { ...currentAnimatedPiece, y: currentAnimatedPiece.y + 1 };
+            setCurrentPiece(currentAnimatedPiece); // Update state to trigger re-render
+            scoreAccumulated += 2; // Score per row dropped
+            setTimeout(animateStep, 20); // Small delay for animation speed
+        } else {
+            // Animation complete, finalize placement
+            const newBoard = placePiece(currentAnimatedPiece, board);
+            const clearedLineYs = getClearedLines(newBoard);
+
+            if (clearedLineYs.length > 0) {
+                // Start line clear animation
+                setClearingRows(clearedLineYs);
+                setAnimationColumn(-1); // Reset animation column
+                setIsClearing(true); // Indicate that clearing animation is in progress
+                // Game logic for score/lines/level will be handled after animation
+            } else {
+                // No lines to clear, proceed as usual
+                setBoard(newBoard);
+
+                if (currentAnimatedPiece.y <= 1) { // Check final position for game over
+                    setGameOver(true);
+                    setGameStarted(false);
+                    resetBGM();
+                    return;
+                }
+                setCurrentPiece(nextPiece);
+                setNextPiece(createRandomTetromino());
+                setScore(prev => prev + scoreAccumulated); // Add accumulated score
+            }
+        }
     };
-    
-    const newBoard = placePiece(droppedPiece, board);
-    const { board: clearedBoard, clearedCount } = clearLines(newBoard);
-    
-    setBoard(clearedBoard);
-    
-    if (clearedCount > 0) {
-      const points = [0, 40, 100, 300, 1200][clearedCount] * level;
-      setScore(prev => prev + points);
-      setLines(prev => {
-        const newLines = prev + clearedCount;
-        const newLevel = Math.floor(newLines / 10) + 1;
-        setLevel(newLevel);
-        dropTimeRef.current = Math.max(50, 1000 - (newLevel - 1) * 100);
-        return newLines;
-      });
-    }
-    
-    if (droppedPiece.y <= 1) {
-      setGameOver(true);
-      setGameStarted(false);
-      return;
-    }
-    
-    setCurrentPiece(nextPiece);
-    setNextPiece(createRandomTetromino());
-    setScore(prev => prev + dropDistance * 2);
-  }, [currentPiece, board, gameOver, isPaused, checkCollision, placePiece, clearLines, nextPiece, createRandomTetromino, level]);
+
+    animateStep(); // Start the animation
+  }, [currentPiece, board, gameOver, isPaused, checkCollision, placePiece, getClearedLines, nextPiece, createRandomTetromino, level, playSound, resetBGM, setClearingRows, setAnimationColumn, setIsClearing]);
 
   // 게임 루프
   const gameLoop = useCallback(() => {
@@ -371,7 +419,7 @@ const TetrisGame = () => {
   useEffect(() => {
     if (gameStarted && !gameOver && !isPaused) {
       gameLoopRef.current = setInterval(gameLoop, dropTimeRef.current);
-    } else if (!gameStarted || gameOver || isPaused) {
+    } else {
       if (gameLoopRef.current) {
         clearInterval(gameLoopRef.current);
       }
@@ -381,7 +429,55 @@ const TetrisGame = () => {
         clearInterval(gameLoopRef.current);
       }
     };
-  }, [gameStarted, gameOver, isPaused, gameLoop]);
+  }, [gameStarted, gameOver, isPaused, gameLoop, dropTimeRef]);
+
+  // Line clear animation effect
+  useEffect(() => {
+    if (isClearing && animationColumn < BOARD_WIDTH) {
+      const timer = setTimeout(() => {
+        setAnimationColumn(prev => prev + 1);
+      }, 15); // Speed of the clear animation (reduced to 15ms)
+      return () => clearTimeout(timer);
+    } else if (isClearing && animationColumn === BOARD_WIDTH) {
+      // Animation complete, now clear lines from board and update score/etc.
+      const newBoardAfterClear = removeAndShiftLines(board, clearingRows);
+      setBoard(newBoardAfterClear);
+      playSound(lineClearSoundRef);
+
+      const clearedCount = clearingRows.length;
+      const points = [0, 40, 100, 300, 1200][clearedCount] * level;
+      setScore(prev => prev + points);
+      setLines(prev => {
+        const newLines = prev + clearedCount;
+        const newLevel = Math.floor(newLines / 10) + 1;
+        setLevel(newLevel);
+        dropTimeRef.current = Math.max(50, 1000 - (newLevel - 1) * 100);
+        return newLines;
+      });
+
+      setClearingRows([]);
+      setAnimationColumn(-1);
+      setIsClearing(false);
+      // After clearing, immediately generate next piece if game is still active
+      if (!gameOver && !isPaused) {
+        setCurrentPiece(nextPiece);
+        setNextPiece(createRandomTetromino());
+      }
+    }
+  }, [isClearing, animationColumn, board, clearingRows, removeAndShiftLines, playSound, lineClearSoundRef, level, setScore, setLines, setLevel, dropTimeRef, gameOver, isPaused, setCurrentPiece, nextPiece, createRandomTetromino]);
+
+  // BGM playback control
+  useEffect(() => {
+    if (bgmRef.current) {
+      if (gameStarted && !gameOver && !isPaused) {
+        playBGM();
+      } else if (isPaused) {
+        stopBGM();
+      } else if (gameOver) {
+        resetBGM();
+      }
+    }
+  }, [gameStarted, gameOver, isPaused, playBGM, stopBGM, resetBGM]);
 
   // 키보드 이벤트
   useEffect(() => {
@@ -406,6 +502,7 @@ const TetrisGame = () => {
           const rotatedPiece = rotatePiece(currentPiece);
           if (rotatedPiece && !checkCollision(rotatedPiece, board)) {
             setCurrentPiece(rotatedPiece);
+            playSound(rotateSoundRef); // Play rotate sound
           }
           break;
         case ' ':
@@ -422,14 +519,14 @@ const TetrisGame = () => {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameStarted, gameOver, movePiece, rotatePiece, hardDrop, currentPiece, board, checkCollision]);
+  }, [gameStarted, gameOver, movePiece, rotatePiece, hardDrop, currentPiece, board, checkCollision, playSound]);
 
   // 보드 렌더링
   const renderBoard = useCallback(() => {
     const displayBoard: (number | string)[][] = board.map(row => [...row]);
     
     // 현재 피스 표시
-    if (currentPiece && !gameOver && !isPaused) {
+    if (currentPiece && !gameOver && !isPaused && !isClearing) {
       for (let y = 0; y < currentPiece.shape.length; y++) {
         for (let x = 0; x < currentPiece.shape[y].length; x++) {
           if (currentPiece.shape[y][x]) {
@@ -442,15 +539,26 @@ const TetrisGame = () => {
         }
       }
     }
+
+    // 라인 클리어 애니메이션 중인 블록 처리
+    if (isClearing && clearingRows.length > 0) {
+      for (const rowY of clearingRows) {
+        for (let colX = 0; colX < BOARD_WIDTH; colX++) {
+          if (colX <= animationColumn) {
+            displayBoard[rowY][colX] = 0; // Clear the block visually
+          }
+        }
+      }
+    }
     
     return displayBoard;
-  }, [board, currentPiece, gameOver, isPaused]);
+  }, [board, currentPiece, gameOver, isPaused, isClearing, clearingRows, animationColumn]);
 
   const displayBoard = renderBoard();
 
   return (
     <div
-      className={`flex bg-gray-900 text-white font-mono overflow-hidden ${isLandscape ? 'flex-row' : 'flex-col'} p-4`}
+      className={`flex flex-col bg-gray-900 text-white font-mono overflow-hidden p-4`}
       style={{
         height: viewportHeight || '100vh',
         minHeight: viewportHeight || '100vh',
@@ -514,24 +622,114 @@ const TetrisGame = () => {
           border-right: 1px solid #6b7280;
           border-bottom: 1px solid #6b7280;
         }
+
+        @keyframes flashBorder {
+          0% { border-color: transparent; }
+          50% { border: 3px solid white; }
+          100% { border-color: transparent; }
+        }
+
+        .flash-border {
+          animation: flashBorder 0.1s linear infinite; /* 짧고 반복적인 깜빡임 */
+        }
       `}</style>
-      
-      {/* 게임 정보 및 다음 블록 (가로/세로 공통) */}
-      <div className={`flex flex-col ${isLandscape ? 'w-1/4 h-full p-4 justify-between' : 'w-full h-auto p-4 mx-auto'}`}>
-        <h1 className="text-4xl font-bold text-center text-green-400 mb-4 drop-shadow-lg">
-          Tetris Game
-        </h1>
-        
-        {/* 게임 정보 및 다음 블록 */}
-        <div className={`flex justify-around items-center mb-4 ${isLandscape ? 'flex-col' : 'flex-row'}`}>
+
+      {/* 제목 */}
+      <h1 className="text-4xl font-bold text-center text-green-400 mb-4 drop-shadow-lg">
+        Tetris Game
+      </h1>
+
+      {/* 게임 보드 및 정보 패널 (세로 모드에서도 가로 배치) */}
+      <div className={`flex flex-grow justify-center items-center gap-4 flex-row`}>
+        {/* 게임 보드 */}
+        <div
+          className={`relative bg-gray-800 border-2 border-gray-700 rounded-sm shadow-lg flex-shrink-0 mx-auto`}
+          style={{
+            width: `${BOARD_WIDTH * blockSize}px`,
+            height: `${BOARD_HEIGHT * blockSize}px`,
+            display: 'grid',
+            gridTemplateColumns: `repeat(${BOARD_WIDTH}, ${blockSize}px)`,
+            gridTemplateRows: `repeat(${BOARD_HEIGHT}, ${blockSize}px)`,
+            minWidth: `${BOARD_WIDTH * 15}px`,
+            minHeight: `${BOARD_HEIGHT * 15}px`,
+            maxWidth: `${BOARD_WIDTH * 35}px`,
+            maxHeight: `${BOARD_HEIGHT * 35}px`,
+            boxShadow: '0 0 15px rgba(0,255,0,0.5), 0 0 30px rgba(0,255,0,0.3), 0 0 45px rgba(0,255,0,0.1)'
+          }}
+        >
+          {displayBoard.map((row, y) => (
+            row.map((cell, x) => (
+              <div
+                key={`${y}-${x}`}
+                className={`
+                  ${cell === 0 ? 'bg-gray-800' : cell}
+                  ${cell === 0 ? '' : 'border border-gray-700'}
+                  ${isClearing && clearingRows.includes(y) ? 'flash-border' : ''}
+                `}
+                style={{
+                  width: `${blockSize}px`,
+                  height: `${blockSize}px`,
+                  boxSizing: 'border-box'
+                }}
+              />
+            ))
+          ))}
+
+          {/* 게임 오버 / 일시정지 오버레이 */}
+          {(gameOver || isPaused) && (
+            <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
+              <div className="text-center">
+                {gameOver && (
+                  <>
+                    <h2 className="text-5xl font-bold text-red-500 mb-4 animate-bounce">GAME OVER</h2>
+                    <p className="text-xl text-gray-300 mb-6">Score: {score}</p>
+                    <button
+                      onClick={initGame}
+                      className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
+                    >
+                      Play Again
+                    </button>
+                  </>
+                )}
+                {isPaused && !gameOver && (
+                  <>
+                    <h2 className="text-5xl font-bold text-yellow-400 mb-4 animate-pulse">PAUSED</h2>
+                    <p className="text-xl text-gray-300 mb-6">Press &apos;P&apos; to Resume</p>
+                    <button
+                      onClick={() => setIsPaused(false)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
+                    >
+                      Resume Game
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 게임 시작 버튼 오버레이 */}
+          {!gameStarted && !gameOver && (
+            <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
+              <button
+                onClick={initGame}
+                className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-2xl shadow-lg transform transition duration-300 hover:scale-105"
+              >
+                Start Game
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 게임 정보 및 다음 블록 패널 (항상 우측에 배치) */}
+        <div className={`flex flex-col justify-center items-center gap-4 w-1/4 h-full`}>
           <div className="text-lg">Score: <span className="font-bold text-yellow-400">{score}</span></div>
           <div className="text-lg">Lines: <span className="font-bold text-cyan-400">{lines}</span></div>
           <div className="text-lg">Level: <span className="font-bold text-purple-400">{level}</span></div>
-          
+
           {nextPiece && (
-            <div className={`mt-4 ${isLandscape ? 'text-center' : ''}`}>
+            <div className={`mt-4 text-center`}>
               <h3 className="text-md mb-1 text-gray-300">Next</h3>
-              <div 
+              <div
                 className="bg-gray-800 border-2 border-gray-700 p-1 rounded-sm shadow-inner"
                 style={{
                   width: `${blockSize * 4}px`,
@@ -562,145 +760,65 @@ const TetrisGame = () => {
             </div>
           )}
         </div>
-        
-        {/* 세로모드 컨트롤 (여기에만 배치) */}
-        {!isLandscape && (
-          <div className="bg-gray-800 p-2 flex flex-col gap-1 mt-4">
-            <div className="grid grid-cols-3 gap-1 text-xs">
-              <div></div>
-              <button
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  const rotatedPiece = rotatePiece(currentPiece);
-                  if (rotatedPiece && !checkCollision(rotatedPiece, board)) {
-                    setCurrentPiece(rotatedPiece);
-                  }
-                }}
-                className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
-              >
-                <ChevronUp size={16} />
-              </button>
-              <div></div>
-
-              <button
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  movePiece('left');
-                }}
-                className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  movePiece('down');
-                }}
-                className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
-              >
-                <ChevronDown size={16} />
-              </button>
-              <button
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  movePiece('right');
-                }}
-                className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-
-            <button
-              onTouchStart={(e) => {
-                e.preventDefault();
-                hardDrop();
-              }}
-              className="bg-red-600 active:bg-red-500 px-2 py-1 rounded font-bold text-xs"
-            >
-              DROP
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* 게임 보드 */}
-      <div
-        className={`relative bg-gray-800 border-2 border-gray-700 rounded-sm shadow-lg ${isLandscape ? 'flex-shrink-0 flex-grow' : 'mx-auto'}`}
-        style={{
-          width: `${BOARD_WIDTH * blockSize}px`,
-          height: `${BOARD_HEIGHT * blockSize}px`,
-          display: 'grid',
-          gridTemplateColumns: `repeat(${BOARD_WIDTH}, ${blockSize}px)`,
-          gridTemplateRows: `repeat(${BOARD_HEIGHT}, ${blockSize}px)`,
-          minWidth: `${BOARD_WIDTH * 15}px`,
-          minHeight: `${BOARD_HEIGHT * 15}px`,
-          maxWidth: `${BOARD_WIDTH * 35}px`,
-          maxHeight: `${BOARD_HEIGHT * 35}px`,
-          margin: isLandscape ? 'auto' : '0 auto',
-          boxShadow: '0 0 15px rgba(0,255,0,0.5), 0 0 30px rgba(0,255,0,0.3), 0 0 45px rgba(0,255,0,0.1)'
-        }}
-      >
-        {displayBoard.map((row, y) => (
-          row.map((cell, x) => (
-            <div
-              key={`${y}-${x}`}
-              className={`
-                ${cell === 0 ? 'bg-gray-800' : cell}
-                ${cell === 0 ? '' : 'border border-gray-700'}
-              `}
-              style={{
-                width: `${blockSize}px`,
-                height: `${blockSize}px`,
-                boxSizing: 'border-box'
-              }}
-            />
-          ))
-        ))}
+      {/* 조작 버튼 (메인화면 하단) */}
+      <div className="bg-gray-800 p-2 mt-auto flex justify-between items-center w-full max-w-sm mx-auto">
+        <div className="grid grid-cols-3 gap-1 text-base">
+          <div></div>
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              const rotatedPiece = rotatePiece(currentPiece);
+              if (rotatedPiece && !checkCollision(rotatedPiece, board)) {
+                setCurrentPiece(rotatedPiece);
+                playSound(rotateSoundRef); // Added sound here for consistency with keyboard
+              }
+            }}
+            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
+          >
+            <ChevronUp size={16} />
+          </button>
+          <div></div>
 
-        {/* 게임 오버 / 일시정지 오버레이 */}
-        {(gameOver || isPaused) && (
-          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
-            <div className="text-center">
-              {gameOver && (
-                <>
-                  <h2 className="text-5xl font-bold text-red-500 mb-4 animate-bounce">GAME OVER</h2>
-                  <p className="text-xl text-gray-300 mb-6">Score: {score}</p>
-                  <button
-                    onClick={initGame}
-                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
-                  >
-                    Play Again
-                  </button>
-                </>
-              )}
-              {isPaused && !gameOver && (
-                <>
-                  <h2 className="text-5xl font-bold text-yellow-400 mb-4 animate-pulse">PAUSED</h2>
-                  <p className="text-xl text-gray-300 mb-6">Press &apos;P&apos; to Resume</p>
-                  <button
-                    onClick={() => setIsPaused(false)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
-                  >
-                    Resume Game
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              movePiece('left');
+            }}
+            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              movePiece('down');
+            }}
+            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
+          >
+            <ChevronDown size={16} />
+          </button>
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              movePiece('right');
+            }}
+            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
 
-        {/* 게임 시작 버튼 오버레이 */}
-        {!gameStarted && !gameOver && (
-          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
-            <button
-              onClick={initGame}
-              className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-2xl shadow-lg transform transition duration-300 hover:scale-105"
-            >
-              Start Game
-            </button>
-          </div>
-        )}
+        <button
+          onTouchStart={(e) => {
+            e.preventDefault();
+            hardDrop();
+          }}
+          className="bg-red-600 active:bg-red-500 px-4 py-3 rounded font-bold text-base"
+        >
+          DROP
+        </button>
       </div>
     </div>
   );
