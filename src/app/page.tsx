@@ -165,6 +165,8 @@ const TetrisGame = () => {
       const vw = window.innerWidth;
       const vh = getViewportHeight();
 
+      setViewportHeight(vh);
+
       // 안전 여백 (상태바, 노치 등을 고려)
       const safeTop = 40;
       const safeBottom = 60; // 모바일 컨트롤이 항상 하단에 있으므로 고정
@@ -408,7 +410,7 @@ const TetrisGame = () => {
     };
 
     animateStep(); // Start the animation
-  }, [currentPiece, board, gameOver, isPaused, checkCollision, placePiece, getClearedLines, nextPiece, createRandomTetromino, level, playSound, resetBGM, setClearingRows, setAnimationColumn, setIsClearing]);
+  }, [currentPiece, board, gameOver, isPaused, checkCollision, placePiece, getClearedLines, nextPiece, createRandomTetromino, playSound, resetBGM, setClearingRows, setAnimationColumn, setIsClearing]);
 
   // 게임 루프
   const gameLoop = useCallback(() => {
