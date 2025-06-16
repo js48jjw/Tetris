@@ -677,7 +677,7 @@ const TetrisGame = () => {
               {isPaused && !gameOver && (
                 <>
                   <h2 className="text-5xl font-bold text-yellow-400 mb-4 animate-pulse">PAUSED</h2>
-                  <p className="text-xl text-gray-300 mb-6">Press 'P' to Resume</p>
+                  <p className="text-xl text-gray-300 mb-6">Press &apos;P&apos; to Resume</p>
                   <button
                     onClick={() => setIsPaused(false)}
                     className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
