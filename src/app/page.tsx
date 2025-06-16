@@ -459,7 +459,7 @@ const TetrisGame = () => {
   const displayBoard = renderBoard();
 
   return (
-    <div className="flex flex-col items-center h-dvh bg-gray-900 text-white font-mono overflow-hidden">
+    <div className="flex flex-col items-center h-dvh bg-gray-900 text-white font-mono">
       <div className="flex flex-col flex-grow p-4 w-full max-w-screen-lg">
         <h1 className="text-5xl font-bold mb-8 text-center">테트리스</h1>
         <div className="relative flex flex-row items-start space-x-8 flex-grow justify-center">
