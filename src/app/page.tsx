@@ -86,7 +86,6 @@ const TETROMINOS: Tetrominos = {
 
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
-const BLOCK_SIZE = 30; // 300px / 10 = 30px, 600px / 20 = 30px
 const TETROMINO_KEYS = Object.keys(TETROMINOS);
 
 const CLEAR_ANIMATION_DURATION = 0.1; // 각 셀의 애니메이션 지속 시간
@@ -118,9 +117,33 @@ const TetrisGame = () => {
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [animatedPieceY, setAnimatedPieceY] = useState<number | null>(null);
   const [clearingLines, setClearingLines] = useState<number[]>([]);
+  const [blockSize, setBlockSize] = useState(30); // 새로운 blockSize 상태 변수
   
   const gameLoopRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const dropTimeRef = useRef<number>(1000);
+
+  // blockSize 동적 계산 및 업데이트 useEffect
+  useEffect(() => {
+    const calculateBlockSize = () => {
+      // 모바일 환경을 고려하여 화면 크기에 비례하여 블록 크기 계산
+      // (예시 값이며, 실제 화면 비율과 UI 구성에 따라 미세 조정 필요)
+      const maxBoardWidth = window.innerWidth * 0.8; // 화면 너비의 80% 사용
+      const maxBoardHeight = window.innerHeight * 0.7; // 화면 높이의 70% 사용 (상단 제목, 하단 컨트롤러 고려)
+
+      const calculatedWidthSize = Math.floor(maxBoardWidth / BOARD_WIDTH);
+      const calculatedHeightSize = Math.floor(maxBoardHeight / BOARD_HEIGHT);
+
+      // 너비와 높이 중 작은 값을 선택하여 보드가 화면을 벗어나지 않도록 함
+      setBlockSize(Math.max(15, Math.min(calculatedWidthSize, calculatedHeightSize))); // 최소 15px
+    };
+
+    calculateBlockSize(); // 초기 로드 시 계산
+    window.addEventListener('resize', calculateBlockSize); // 화면 크기 변경 시 재계산
+
+    return () => {
+      window.removeEventListener('resize', calculateBlockSize); // 정리 함수
+    };
+  }, []);
 
   // 랜덤 테트로미노 생성
   const createRandomTetromino = useCallback((): Tetromino => {
@@ -461,6 +484,15 @@ const TetrisGame = () => {
   return (
     <div className="flex flex-col items-center min-h-screen bg-gray-900 text-white font-mono">
       <h1 className="text-5xl font-bold mb-8 text-center">테트리스</h1>
+      {/* SCORE, LEVEL, LINES 헤더의 새로운 위치 */}
+      <div className="bg-gray-800 p-2 flex justify-between items-center">
+        <div className="text-xl font-bold">TETRIS</div>
+        <div className="flex gap-4 text-sm">
+          <div>SCORE: {score}</div>
+          <div>LEVEL: {level}</div>
+          <div>LINES: {lines}</div>
+        </div>
+      </div>
 
       {/* 메인 게임 영역 (보드 + 사이드바): 이 div가 flex-grow를 가져야 합니다. */}
       <div className="relative flex flex-row items-start space-x-8 flex-grow justify-center p-4 w-full max-w-screen-lg">
@@ -524,16 +556,6 @@ const TetrisGame = () => {
           }
         `}</style>
 
-        {/* 헤더 */}
-        <div className="bg-gray-800 p-2 flex justify-between items-center">
-          <div className="text-xl font-bold">TETRIS</div>
-          <div className="flex gap-4 text-sm">
-            <div>SCORE: {score}</div>
-            <div>LEVEL: {level}</div>
-            <div>LINES: {lines}</div>
-          </div>
-        </div>
-
         {/* 메인 게임 영역 */}
         <div className="flex-1 flex">
           {/* 게임 보드 */}
@@ -543,8 +565,8 @@ const TetrisGame = () => {
               style={{
                 gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
                 gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
-                width: `${BOARD_WIDTH * BLOCK_SIZE}px`,
-                height: `${BOARD_HEIGHT * BLOCK_SIZE}px`,
+                width: `${BOARD_WIDTH * blockSize}px`,
+                height: `${BOARD_HEIGHT * blockSize}px`,
                 position: 'relative',
               }}
             >
@@ -566,10 +588,10 @@ const TetrisGame = () => {
                         }}
                         style={{
                           position: 'absolute',
-                          left: x * BLOCK_SIZE,
-                          top: y * BLOCK_SIZE,
-                          width: `${BLOCK_SIZE}px`,
-                          height: `${BLOCK_SIZE}px`,
+                          left: x * blockSize,
+                          top: y * blockSize,
+                          width: `${blockSize}px`,
+                          height: `${blockSize}px`,
                           zIndex: 30,
                           backgroundImage: 'none',
                         }}
@@ -584,8 +606,8 @@ const TetrisGame = () => {
                           cell ? cell : 'bg-gray-900 border border-gray-800'
                         }`}
                         style={{
-                          width: `${BLOCK_SIZE}px`,
-                          height: `${BLOCK_SIZE}px`,
+                          width: `${blockSize}px`,
+                          height: `${blockSize}px`,
                         }}
                       />
                     );
@@ -596,15 +618,15 @@ const TetrisGame = () => {
               {/* 현재 블록 렌더링 (framer-motion 적용) */}
               {currentPiece && animatedPieceY !== null && !gameOver && !isPaused && (
                 <motion.div
-                  initial={{ y: currentPiece.y * BLOCK_SIZE }} // 시작 Y 위치
-                  animate={{ y: animatedPieceY * BLOCK_SIZE }} // 목표 Y 위치
+                  initial={{ y: currentPiece.y * blockSize }} // 시작 Y 위치 (BLOCK_SIZE 대신 blockSize 사용)
+                  animate={{ y: animatedPieceY * blockSize }} // 목표 Y 위치 (BLOCK_SIZE 대신 blockSize 사용)
                   transition={{ duration: 0.2, ease: "linear" }} // 애니메이션 지속 시간 및 이징
                   style={{
                     position: 'absolute',
-                    left: currentPiece.x * BLOCK_SIZE,
+                    left: currentPiece.x * blockSize,
                     top: 0, // 초기 위치는 0으로 설정하고 animatedPieceY로 조절
-                    width: currentPiece.shape[0].length * BLOCK_SIZE,
-                    height: currentPiece.shape.length * BLOCK_SIZE,
+                    width: currentPiece.shape[0].length * blockSize,
+                    height: currentPiece.shape.length * blockSize,
                   }}
                 >
                   {currentPiece.shape.map((row, y) =>
@@ -616,10 +638,10 @@ const TetrisGame = () => {
                             className={`${currentPiece.color}`}
                             style={{
                               position: 'absolute',
-                              left: x * BLOCK_SIZE,
-                              top: y * BLOCK_SIZE,
-                              width: `${BLOCK_SIZE}px`,
-                              height: `${BLOCK_SIZE}px`,
+                              left: x * blockSize,
+                              top: y * blockSize,
+                              width: `${blockSize}px`,
+                              height: `${blockSize}px`,
                             }}
                           />
                         );
@@ -676,20 +698,24 @@ const TetrisGame = () => {
               <div className="text-sm font-bold mb-2">NEXT</div>
               <div className="bg-black border border-gray-600 p-2 h-16 flex items-center justify-center">
                 {nextPiece && (
-                  <div
+                  <div 
                     className="grid gap-0"
                     style={{
-                      gridTemplateColumns: `repeat(${nextPiece.shape[0].length}, 12px)`,
-                      gridTemplateRows: `repeat(${nextPiece.shape.length}, 12px)`
+                      gridTemplateColumns: `repeat(${nextPiece.shape[0].length}, ${blockSize * 0.5}px)`,
+                      gridTemplateRows: `repeat(${nextPiece.shape.length}, ${blockSize * 0.5}px)`
                     }}
                   >
                     {nextPiece.shape.map((row, y) =>
                       row.map((cell, x) => (
                         <div
                           key={`${y}-${x}`}
-                          className={`w-3 h-3 ${
+                          className={`${
                             cell ? nextPiece.color : 'bg-transparent'
                           }`}
+                          style={{
+                              width: `${blockSize * 0.5}px`,
+                              height: `${blockSize * 0.5}px`,
+                          }}
                         />
                       ))
                     )}
