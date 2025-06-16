@@ -459,313 +459,318 @@ const TetrisGame = () => {
   const displayBoard = renderBoard();
 
   return (
-    <div className="h-screen w-screen bg-gray-900 text-white flex flex-col">
-      {/* 3D 블록 스타일 */}
-      <style jsx>{`
-        .tetris-cyan {
-          background: linear-gradient(135deg, #67e8f9 0%, #22d3ee 50%, #0891b2 100%);
-          border-top: 2px solid #a5f3fc;
-          border-left: 2px solid #a5f3fc;
-          border-right: 2px solid #0891b2;
-          border-bottom: 2px solid #0891b2;
-          box-shadow: inset -2px -2px 4px rgba(8, 145, 178, 0.3);
-        }
-        .tetris-yellow {
-          background: linear-gradient(135deg, #fef08a 0%, #facc15 50%, #ca8a04 100%);
-          border-top: 2px solid #fef3c7;
-          border-left: 2px solid #fef3c7;
-          border-right: 2px solid #ca8a04;
-          border-bottom: 2px solid #ca8a04;
-          box-shadow: inset -2px -2px 4px rgba(202, 138, 4, 0.3);
-        }
-        .tetris-purple {
-          background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #7c3aed 100%);
-          border-top: 2px solid #ddd6fe;
-          border-left: 2px solid #ddd6fe;
-          border-right: 2px solid #7c3aed;
-          border-bottom: 2px solid #7c3aed;
-          box-shadow: inset -2px -2px 4px rgba(124, 58, 237, 0.3);
-        }
-        .tetris-green {
-          background: linear-gradient(135deg, #86efac 0%, #22c55e 50%, #15803d 100%);
-          border-top: 2px solid #bbf7d0;
-          border-left: 2px solid #bbf7d0;
-          border-right: 2px solid #15803d;
-          border-bottom: 2px solid #15803d;
-          box-shadow: inset -2px -2px 4px rgba(21, 128, 61, 0.3);
-        }
-        .tetris-red {
-          background: linear-gradient(135deg, #fca5a5 0%, #ef4444 50%, #dc2626 100%);
-          border-top: 2px solid #fecaca;
-          border-left: 2px solid #fecaca;
-          border-right: 2px solid #dc2626;
-          border-bottom: 2px solid #dc2626;
-          box-shadow: inset -2px -2px 4px rgba(220, 38, 38, 0.3);
-        }
-        .tetris-blue {
-          background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%);
-          border-top: 2px solid #bfdbfe;
-          border-left: 2px solid #bfdbfe;
-          border-right: 2px solid #1d4ed8;
-          border-bottom: 2px solid #1d4ed8;
-          box-shadow: inset -2px -2px 4px rgba(29, 78, 216, 0.3);
-        }
-        .tetris-orange {
-          background: linear-gradient(135deg, #fdba74 0%, #f97316 50%, #c2410c 100%);
-          border-top: 2px solid #fed7aa;
-          border-left: 2px solid #fed7aa;
-          border-right: 2px solid #c2410c;
-          border-bottom: 2px solid #c2410c;
-          box-shadow: inset -2px -2px 4px rgba(194, 65, 12, 0.3);
-        }
-      `}</style>
-      
-      {/* 헤더 */}
-      <div className="bg-gray-800 p-2 flex justify-between items-center">
-        <div className="text-xl font-bold">TETRIS</div>
-        <div className="flex gap-4 text-sm">
-          <div>SCORE: {score}</div>
-          <div>LEVEL: {level}</div>
-          <div>LINES: {lines}</div>
-        </div>
-      </div>
+    <div className="flex flex-col items-center h-dvh bg-gray-900 text-white font-mono overflow-hidden">
+      <div className="flex flex-col flex-grow p-4 w-full max-w-screen-lg">
+        <h1 className="text-5xl font-bold mb-8 text-center">테트리스</h1>
+        <div className="relative flex flex-row items-start space-x-8 flex-grow justify-center">
+          {/* 3D 블록 스타일 */}
+          <style jsx>{`
+            .tetris-cyan {
+              background: linear-gradient(135deg, #67e8f9 0%, #22d3ee 50%, #0891b2 100%);
+              border-top: 2px solid #a5f3fc;
+              border-left: 2px solid #a5f3fc;
+              border-right: 2px solid #0891b2;
+              border-bottom: 2px solid #0891b2;
+              box-shadow: inset -2px -2px 4px rgba(8, 145, 178, 0.3);
+            }
+            .tetris-yellow {
+              background: linear-gradient(135deg, #fef08a 0%, #facc15 50%, #ca8a04 100%);
+              border-top: 2px solid #fef3c7;
+              border-left: 2px solid #fef3c7;
+              border-right: 2px solid #ca8a04;
+              border-bottom: 2px solid #ca8a04;
+              box-shadow: inset -2px -2px 4px rgba(202, 138, 4, 0.3);
+            }
+            .tetris-purple {
+              background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #7c3aed 100%);
+              border-top: 2px solid #ddd6fe;
+              border-left: 2px solid #ddd6fe;
+              border-right: 2px solid #7c3aed;
+              border-bottom: 2px solid #7c3aed;
+              box-shadow: inset -2px -2px 4px rgba(124, 58, 237, 0.3);
+            }
+            .tetris-green {
+              background: linear-gradient(135deg, #86efac 0%, #22c55e 50%, #15803d 100%);
+              border-top: 2px solid #bbf7d0;
+              border-left: 2px solid #bbf7d0;
+              border-right: 2px solid #15803d;
+              border-bottom: 2px solid #15803d;
+              box-shadow: inset -2px -2px 4px rgba(21, 128, 61, 0.3);
+            }
+            .tetris-red {
+              background: linear-gradient(135deg, #fca5a5 0%, #ef4444 50%, #dc2626 100%);
+              border-top: 2px solid #fecaca;
+              border-left: 2px solid #fecaca;
+              border-right: 2px solid #dc2626;
+              border-bottom: 2px solid #dc2626;
+              box-shadow: inset -2px -2px 4px rgba(220, 38, 38, 0.3);
+            }
+            .tetris-blue {
+              background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%);
+              border-top: 2px solid #bfdbfe;
+              border-left: 2px solid #bfdbfe;
+              border-right: 2px solid #1d4ed8;
+              border-bottom: 2px solid #1d4ed8;
+              box-shadow: inset -2px -2px 4px rgba(29, 78, 216, 0.3);
+            }
+            .tetris-orange {
+              background: linear-gradient(135deg, #fdba74 0%, #f97316 50%, #c2410c 100%);
+              border-top: 2px solid #fed7aa;
+              border-left: 2px solid #fed7aa;
+              border-right: 2px solid #c2410c;
+              border-bottom: 2px solid #c2410c;
+              box-shadow: inset -2px -2px 4px rgba(194, 65, 12, 0.3);
+            }
+          `}</style>
+          
+          {/* 헤더 */}
+          <div className="bg-gray-800 p-2 flex justify-between items-center">
+            <div className="text-xl font-bold">TETRIS</div>
+            <div className="flex gap-4 text-sm">
+              <div>SCORE: {score}</div>
+              <div>LEVEL: {level}</div>
+              <div>LINES: {lines}</div>
+            </div>
+          </div>
 
-      {/* 메인 게임 영역 */}
-      <div className="flex-1 flex">
-        {/* 게임 보드 */}
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="relative border-2 border-white">
-            <div 
-              className="grid gap-0 bg-black"
-              style={{
-                gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
-                gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
-                width: `${BOARD_WIDTH * BLOCK_SIZE}px`,
-                height: `${BOARD_HEIGHT * BLOCK_SIZE}px`,
-                position: 'relative',
-              }}
-            >
-              {displayBoard.map((row, y) =>
-                row.map((cell, x) => {
-                  const isClearingCell = clearingLines.includes(y);
-
-                  if (isClearingCell && cell !== 0) {
-                    const cellColor = COLOR_MAP[cell as keyof typeof COLOR_MAP] || 'transparent';
-                    return (
-                      <motion.div
-                        key={`clearing-${y}-${x}-animated`}
-                        initial={{ opacity: 1, rotate: 0, backgroundColor: cellColor }}
-                        animate={{ opacity: 0, rotate: 5, backgroundColor: 'rgba(0, 0, 0, 0)' }}
-                        transition={{
-                          duration: CLEAR_ANIMATION_DURATION,
-                          delay: x * CLEAR_ANIMATION_CELL_DELAY_FACTOR,
-                          ease: "easeOut"
-                        }}
-                        style={{
-                          position: 'absolute',
-                          left: x * BLOCK_SIZE,
-                          top: y * BLOCK_SIZE,
-                          width: `${BLOCK_SIZE}px`,
-                          height: `${BLOCK_SIZE}px`,
-                          zIndex: 30,
-                          backgroundImage: 'none',
-                        }}
-                      />
-                    );
-                  } else {
-                    // 일반 셀 렌더링 (비어 있거나 고정된 블록)
-                    return (
-                      <div
-                        key={`${y}-${x}`}
-                        className={`${
-                          cell ? cell : 'bg-gray-900 border border-gray-800'
-                        }`}
-                        style={{
-                          width: `${BLOCK_SIZE}px`,
-                          height: `${BLOCK_SIZE}px`,
-                        }}
-                      />
-                    );
-                  }
-                })
-              )}
-
-              {/* 현재 블록 렌더링 (framer-motion 적용) */}
-              {currentPiece && animatedPieceY !== null && !gameOver && !isPaused && (
-                <motion.div
-                  initial={{ y: currentPiece.y * BLOCK_SIZE }} // 시작 Y 위치
-                  animate={{ y: animatedPieceY * BLOCK_SIZE }} // 목표 Y 위치
-                  transition={{ duration: 0.2, ease: "linear" }} // 애니메이션 지속 시간 및 이징
+          {/* 메인 게임 영역 */}
+          <div className="flex-1 flex">
+            {/* 게임 보드 */}
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="relative border-2 border-white">
+                <div 
+                  className="grid gap-0 bg-black"
                   style={{
-                    position: 'absolute',
-                    left: currentPiece.x * BLOCK_SIZE,
-                    top: 0, // 초기 위치는 0으로 설정하고 animatedPieceY로 조절
-                    width: currentPiece.shape[0].length * BLOCK_SIZE,
-                    height: currentPiece.shape.length * BLOCK_SIZE,
+                    gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)`,
+                    gridTemplateRows: `repeat(${BOARD_HEIGHT}, 1fr)`,
+                    width: `${BOARD_WIDTH * BLOCK_SIZE}px`,
+                    height: `${BOARD_HEIGHT * BLOCK_SIZE}px`,
+                    position: 'relative',
                   }}
                 >
-                  {currentPiece.shape.map((row, y) =>
+                  {displayBoard.map((row, y) =>
                     row.map((cell, x) => {
-                      if (cell) {
+                      const isClearingCell = clearingLines.includes(y);
+
+                      if (isClearingCell && cell !== 0) {
+                        const cellColor = COLOR_MAP[cell as keyof typeof COLOR_MAP] || 'transparent';
                         return (
-                          <div
-                            key={`${y}-${x}`}
-                            className={`${currentPiece.color}`}
+                          <motion.div
+                            key={`clearing-${y}-${x}-animated`}
+                            initial={{ opacity: 1, rotate: 0, backgroundColor: cellColor }}
+                            animate={{ opacity: 0, rotate: 5, backgroundColor: 'rgba(0, 0, 0, 0)' }}
+                            transition={{
+                              duration: CLEAR_ANIMATION_DURATION,
+                              delay: x * CLEAR_ANIMATION_CELL_DELAY_FACTOR,
+                              ease: "easeOut"
+                            }}
                             style={{
                               position: 'absolute',
                               left: x * BLOCK_SIZE,
                               top: y * BLOCK_SIZE,
                               width: `${BLOCK_SIZE}px`,
                               height: `${BLOCK_SIZE}px`,
+                              zIndex: 30,
+                              backgroundImage: 'none',
+                            }}
+                          />
+                        );
+                      } else {
+                        // 일반 셀 렌더링 (비어 있거나 고정된 블록)
+                        return (
+                          <div
+                            key={`${y}-${x}`}
+                            className={`${
+                              cell ? cell : 'bg-gray-900 border border-gray-800'
+                            }`}
+                            style={{
+                              width: `${BLOCK_SIZE}px`,
+                              height: `${BLOCK_SIZE}px`,
                             }}
                           />
                         );
                       }
-                      return null;
                     })
                   )}
-                </motion.div>
-              )}
-            </div>
-            
-            {/* 게임 오버 오버레이 */}
-            {gameOver && (
-              <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-2xl font-bold mb-4">GAME OVER</div>
-                  <button
-                    onClick={initGame}
-                    className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded font-bold"
-                  >
-                    Play Again
-                  </button>
-                </div>
-              </div>
-            )}
-            
-            {/* 일시정지 오버레이 */}
-            {isPaused && gameStarted && !gameOver && (
-              <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
-                <div className="text-2xl font-bold">PAUSED</div>
-              </div>
-            )}
-            
-            {/* 시작 화면 */}
-            {!gameStarted && !gameOver && (
-              <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="text-2xl font-bold mb-4">TETRIS</div>
-                  <button
-                    onClick={initGame}
-                    className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded font-bold"
-                  >
-                    Start Game
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* 사이드바 */}
-        <div className="w-32 bg-gray-800 p-4 flex flex-col gap-4">
-          {/* Next 블록 */}
-          <div>
-            <div className="text-sm font-bold mb-2">NEXT</div>
-            <div className="bg-black border border-gray-600 p-2 h-16 flex items-center justify-center">
-              {nextPiece && (
-                <div 
-                  className="grid gap-0"
-                  style={{
-                    gridTemplateColumns: `repeat(${nextPiece.shape[0].length}, 12px)`,
-                    gridTemplateRows: `repeat(${nextPiece.shape.length}, 12px)`
-                  }}
-                >
-                  {nextPiece.shape.map((row, y) =>
-                    row.map((cell, x) => (
-                      <div
-                        key={`${y}-${x}`}
-                        className={`w-3 h-3 ${
-                          cell ? nextPiece.color : 'bg-transparent'
-                        }`}
-                      />
-                    ))
+                  {/* 현재 블록 렌더링 (framer-motion 적용) */}
+                  {currentPiece && animatedPieceY !== null && !gameOver && !isPaused && (
+                    <motion.div
+                      initial={{ y: currentPiece.y * BLOCK_SIZE }} // 시작 Y 위치
+                      animate={{ y: animatedPieceY * BLOCK_SIZE }} // 목표 Y 위치
+                      transition={{ duration: 0.2, ease: "linear" }} // 애니메이션 지속 시간 및 이징
+                      style={{
+                        position: 'absolute',
+                        left: currentPiece.x * BLOCK_SIZE,
+                        top: 0, // 초기 위치는 0으로 설정하고 animatedPieceY로 조절
+                        width: currentPiece.shape[0].length * BLOCK_SIZE,
+                        height: currentPiece.shape.length * BLOCK_SIZE,
+                      }}
+                    >
+                      {currentPiece.shape.map((row, y) =>
+                        row.map((cell, x) => {
+                          if (cell) {
+                            return (
+                              <div
+                                key={`${y}-${x}`}
+                                className={`${currentPiece.color}`}
+                                style={{
+                                  position: 'absolute',
+                                  left: x * BLOCK_SIZE,
+                                  top: y * BLOCK_SIZE,
+                                  width: `${BLOCK_SIZE}px`,
+                                  height: `${BLOCK_SIZE}px`,
+                                }}
+                              />
+                            );
+                          }
+                          return null;
+                        })
+                      )}
+                    </motion.div>
                   )}
                 </div>
-              )}
+                
+                {/* 게임 오버 오버레이 */}
+                {gameOver && (
+                  <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold mb-4">GAME OVER</div>
+                      <button
+                        onClick={initGame}
+                        className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded font-bold"
+                      >
+                        Play Again
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* 일시정지 오버레이 */}
+                {isPaused && gameStarted && !gameOver && (
+                  <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+                    <div className="text-2xl font-bold">PAUSED</div>
+                  </div>
+                )}
+                
+                {/* 시작 화면 */}
+                {!gameStarted && !gameOver && (
+                  <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold mb-4">TETRIS</div>
+                      <button
+                        onClick={initGame}
+                        className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded font-bold"
+                      >
+                        Start Game
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 사이드바 */}
+            <div className="w-32 bg-gray-800 p-4 flex flex-col gap-4">
+              {/* Next 블록 */}
+              <div>
+                <div className="text-sm font-bold mb-2">NEXT</div>
+                <div className="bg-black border border-gray-600 p-2 h-16 flex items-center justify-center">
+                  {nextPiece && (
+                    <div 
+                      className="grid gap-0"
+                      style={{
+                        gridTemplateColumns: `repeat(${nextPiece.shape[0].length}, 12px)`,
+                        gridTemplateRows: `repeat(${nextPiece.shape.length}, 12px)`
+                      }}
+                    >
+                      {nextPiece.shape.map((row, y) =>
+                        row.map((cell, x) => (
+                          <div
+                            key={`${y}-${x}`}
+                            className={`w-3 h-3 ${
+                              cell ? nextPiece.color : 'bg-transparent'
+                            }`}
+                          />
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* 일시정지 버튼 */}
+              <button
+                onClick={() => setIsPaused(!isPaused)}
+                disabled={!gameStarted || gameOver}
+                className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 px-3 py-2 rounded text-sm"
+              >
+                {isPaused ? '▶' : '⏸'}
+              </button>
             </div>
           </div>
-          
-          {/* 일시정지 버튼 */}
-          <button
-            onClick={() => setIsPaused(!isPaused)}
-            disabled={!gameStarted || gameOver}
-            className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 px-3 py-2 rounded text-sm"
-          >
-            {isPaused ? '▶' : '⏸'}
-          </button>
-        </div>
-      </div>
 
-      {/* 모바일 컨트롤 */}
-      <div className="bg-gray-800 p-4 flex justify-center items-center gap-8 md:hidden">
-        {/* 방향키 패드 */}
-        <div className="grid grid-cols-3 gap-1">
-          <div></div>
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              const rotatedPieceFromTouch = rotatePiece(currentPiece);
-              if (rotatedPieceFromTouch && !checkCollision(rotatedPieceFromTouch, board)) {
-                setCurrentPiece(rotatedPieceFromTouch);
-                rotateSound.play(); // 회전 시 사운드 재생
-              }
-            }}
-            className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
-          >
-            <ChevronUp size={24} />
-          </button>
-          <div></div>
-          
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              movePiece('left');
-            }}
-            className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
-          >
-            <ChevronLeft size={24} />
-          </button>
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              movePiece('down');
-            }}
-            className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
-          >
-            <ChevronDown size={24} />
-          </button>
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              movePiece('right');
-            }}
-            className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
-          >
-            <ChevronRight size={24} />
-          </button>
+          {/* 모바일 컨트롤 */}
+          <div className="bg-gray-800 p-4 flex justify-center items-center gap-8 md:hidden">
+            {/* 방향키 패드 */}
+            <div className="grid grid-cols-3 gap-1">
+              <div></div>
+              <button
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  const rotatedPieceFromTouch = rotatePiece(currentPiece);
+                  if (rotatedPieceFromTouch && !checkCollision(rotatedPieceFromTouch, board)) {
+                    setCurrentPiece(rotatedPieceFromTouch);
+                    rotateSound.play(); // 회전 시 사운드 재생
+                  }
+                }}
+                className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
+              >
+                <ChevronUp size={24} />
+              </button>
+              <div></div>
+              
+              <button
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  movePiece('left');
+                }}
+                className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  movePiece('down');
+                }}
+                className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
+              >
+                <ChevronDown size={24} />
+              </button>
+              <button
+                onTouchStart={(e) => {
+                  e.preventDefault();
+                  movePiece('right');
+                }}
+                className="bg-gray-600 hover:bg-gray-700 active:bg-gray-500 p-3 rounded flex items-center justify-center"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </div>
+            
+            {/* DOWN 버튼 */}
+            <button
+              onTouchStart={(e) => {
+                e.preventDefault();
+                hardDrop();
+              }}
+              className="bg-red-600 hover:bg-red-700 active:bg-red-500 px-6 py-4 rounded font-bold text-lg"
+            >
+              DOWN
+            </button>
+          </div>
         </div>
-        
-        {/* DOWN 버튼 */}
-        <button
-          onTouchStart={(e) => {
-            e.preventDefault();
-            hardDrop();
-          }}
-          className="bg-red-600 hover:bg-red-700 active:bg-red-500 px-6 py-4 rounded font-bold text-lg"
-        >
-          DOWN
-        </button>
       </div>
     </div>
   );
