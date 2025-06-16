@@ -117,31 +117,41 @@ const TetrisGame = () => {
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [animatedPieceY, setAnimatedPieceY] = useState<number | null>(null);
   const [clearingLines, setClearingLines] = useState<number[]>([]);
-  const [blockSize, setBlockSize] = useState(30); // 새로운 blockSize 상태 변수
+  const [blockSize, setBlockSize] = useState(30);
   
   const gameLoopRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const dropTimeRef = useRef<number>(1000);
 
-  // blockSize 동적 계산 및 업데이트 useEffect
+  // mainGameAreaRef 및 관련 로직 제거
+  // const mainGameAreaRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const calculateBlockSize = () => {
-      // 모바일 환경을 고려하여 화면 크기에 비례하여 블록 크기 계산
-      // (예시 값이며, 실제 화면 비율과 UI 구성에 따라 미세 조정 필요)
-      const maxBoardWidth = window.innerWidth * 0.8; // 화면 너비의 80% 사용
-      const maxBoardHeight = window.innerHeight * 0.7; // 화면 높이의 70% 사용 (상단 제목, 하단 컨트롤러 고려)
+      // 가로 공간 계산 (max-w-screen-lg는 모바일에서 w-full이므로 window.innerWidth 기준)
+      // p-4 (16px * 2 = 32px) 패딩
+      // 사이드바 너비 w-32 (128px)
+      // 게임 보드와 사이드바 사이의 space-x-8 (32px)
+      const horizontalPaddingAndSpacing = (16 * 2) + 128 + 32;
+      const availableHorizontalSpace = window.innerWidth - horizontalPaddingAndSpacing;
 
-      const calculatedWidthSize = Math.floor(maxBoardWidth / BOARD_WIDTH);
-      const calculatedHeightSize = Math.floor(maxBoardHeight / BOARD_HEIGHT);
+      // 보드 너비를 기준으로 blockSize 계산
+      const calculatedWidthSize = Math.floor(availableHorizontalSpace / BOARD_WIDTH);
+      
+      // 높이도 고려하여, 화면이 매우 짧을 경우를 대비
+      // 테트리스 제목 (약 80px), 스코어 헤더 (약 44px), 모바일 컨트롤 (약 92px)
+      const fixedVerticalSpace = 80 + 44 + 92;
+      const availableVerticalSpaceForBoard = window.innerHeight - fixedVerticalSpace;
+      const calculatedHeightSize = Math.floor(availableVerticalSpaceForBoard / BOARD_HEIGHT);
 
-      // 너비와 높이 중 작은 값을 선택하여 보드가 화면을 벗어나지 않도록 함
-      setBlockSize(Math.max(15, Math.min(calculatedWidthSize, calculatedHeightSize))); // 최소 15px
+      // 너비와 높이 중 작은 값을 선택하고 최소값 제한
+      setBlockSize(Math.max(15, Math.min(calculatedWidthSize, calculatedHeightSize)));
     };
 
-    calculateBlockSize(); // 초기 로드 시 계산
-    window.addEventListener('resize', calculateBlockSize); // 화면 크기 변경 시 재계산
+    calculateBlockSize();
+    window.addEventListener('resize', calculateBlockSize);
 
     return () => {
-      window.removeEventListener('resize', calculateBlockSize); // 정리 함수
+      window.removeEventListener('resize', calculateBlockSize);
     };
   }, []);
 
@@ -494,8 +504,10 @@ const TetrisGame = () => {
         </div>
       </div>
 
-      {/* 메인 게임 영역 (보드 + 사이드바): 이 div가 flex-grow를 가져야 합니다. */}
-      <div className="relative flex flex-row items-start space-x-8 flex-grow justify-center p-4 w-full max-w-screen-lg">
+      {/* 메인 게임 영역 (보드 + 사이드바): 여기에 flex-grow를 다시 추가합니다. */}
+      <div
+        className="relative flex flex-row items-start space-x-8 flex-grow justify-center p-4 w-full max-w-screen-lg" // flex-grow를 다시 추가합니다.
+      >
         {/* 3D 블록 스타일 */}
         <style jsx>{`
           .tetris-cyan {
