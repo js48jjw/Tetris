@@ -188,7 +188,7 @@ const TetrisGame = () => {
       const calculatedSize = Math.min(widthBasedSize, heightBasedSize);
       
       // 최소/최대 크기 제한
-      const newBlockSize = Math.max(15, Math.min(calculatedSize, 35));
+      const newBlockSize = Math.max(15, Math.min(calculatedSize, 45));
       setBlockSize(newBlockSize);
     };
 
@@ -723,14 +723,14 @@ const TetrisGame = () => {
         </div>
 
         {/* 게임 정보 및 다음 블록 패널 (항상 우측에 배치) */}
-        <div className={`flex flex-col justify-center items-center gap-4 w-1/4 h-full`}>
-          <div className="text-lg">Score: <span className="font-bold text-yellow-400">{score}</span></div>
-          <div className="text-lg">Lines: <span className="font-bold text-cyan-400">{lines}</span></div>
-          <div className="text-lg">Level: <span className="font-bold text-purple-400">{level}</span></div>
+        <div className={`flex flex-col justify-center items-center gap-2 max-w-[120px] h-full`}>
+          <div className="text-sm">Score: <span className="font-bold text-yellow-400">{score}</span></div>
+          <div className="text-sm">Lines: <span className="font-bold text-cyan-400">{lines}</span></div>
+          <div className="text-sm">Level: <span className="font-bold text-purple-400">{level}</span></div>
 
           {nextPiece && (
-            <div className={`mt-4 text-center`}>
-              <h3 className="text-md mb-1 text-gray-300">Next</h3>
+            <div className={`mt-2 text-center`}>
+              <h3 className="text-sm mb-1 text-gray-300">Next</h3>
               <div
                 className="bg-gray-800 border-2 border-gray-700 p-1 rounded-sm shadow-inner"
                 style={{
@@ -766,49 +766,37 @@ const TetrisGame = () => {
 
       {/* 조작 버튼 (메인화면 하단) */}
       <div className="bg-gray-800 p-2 mt-auto flex justify-between items-center w-full max-w-sm mx-auto">
-        <div className="grid grid-cols-3 gap-1 text-base">
-          <div></div>
+        <div className="flex gap-2">
           <button
             onTouchStart={(e) => {
               e.preventDefault();
               const rotatedPiece = rotatePiece(currentPiece);
               if (rotatedPiece && !checkCollision(rotatedPiece, board)) {
                 setCurrentPiece(rotatedPiece);
-                playSound(rotateSoundRef); // Added sound here for consistency with keyboard
+                playSound(rotateSoundRef);
               }
             }}
-            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
+            className="bg-gray-600 active:bg-gray-500 px-6 py-4 rounded font-bold text-lg"
           >
-            <ChevronUp size={16} />
+            전환
           </button>
-          <div></div>
-
           <button
             onTouchStart={(e) => {
               e.preventDefault();
               movePiece('left');
             }}
-            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
+            className="bg-gray-600 active:bg-gray-500 px-6 py-4 rounded flex items-center justify-center text-lg"
           >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              movePiece('down');
-            }}
-            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
-          >
-            <ChevronDown size={16} />
+            <ChevronLeft size={24} />
           </button>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
               movePiece('right');
             }}
-            className="bg-gray-600 active:bg-gray-500 p-2 rounded flex items-center justify-center"
+            className="bg-gray-600 active:bg-gray-500 px-6 py-4 rounded flex items-center justify-center text-lg"
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={24} />
           </button>
         </div>
 
@@ -817,7 +805,7 @@ const TetrisGame = () => {
             e.preventDefault();
             hardDrop();
           }}
-          className="bg-red-600 active:bg-red-500 px-4 py-3 rounded font-bold text-base"
+          className="bg-red-600 active:bg-red-500 px-6 py-4 rounded font-bold text-lg"
         >
           DROP
         </button>
