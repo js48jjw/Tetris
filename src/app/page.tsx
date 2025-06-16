@@ -188,7 +188,7 @@ const TetrisGame = () => {
       const calculatedSize = Math.min(widthBasedSize, heightBasedSize);
       
       // 최소/최대 크기 제한
-      const newBlockSize = Math.max(15, Math.min(calculatedSize, 45));
+      const newBlockSize = Math.max(15, Math.min(calculatedSize, 60));
       setBlockSize(newBlockSize);
     };
 
@@ -665,13 +665,13 @@ const TetrisGame = () => {
                 key={`${y}-${x}`}
                 className={`
                   ${cell === 0 ? 'bg-gray-800' : cell}
-                  ${cell === 0 ? '' : 'border border-gray-700'}
                   ${isClearing && clearingRows.includes(y) ? 'flash-border' : ''}
                 `}
                 style={{
                   width: `${blockSize}px`,
                   height: `${blockSize}px`,
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  border: '0.5px solid rgba(255, 255, 255, 0.05)', // Subtle grid lines
                 }}
               />
             ))
@@ -765,7 +765,7 @@ const TetrisGame = () => {
       </div>
 
       {/* 조작 버튼 (메인화면 하단) */}
-      <div className="bg-gray-800 p-2 mt-auto flex justify-between items-center w-full max-w-sm mx-auto">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-950 p-4 mt-auto flex justify-between items-center w-full max-w-sm mx-auto rounded-xl shadow-2xl">
         <div className="flex gap-2">
           <button
             onTouchStart={(e) => {
@@ -776,7 +776,7 @@ const TetrisGame = () => {
                 playSound(rotateSoundRef);
               }
             }}
-            className="bg-gray-600 active:bg-gray-500 px-6 py-4 rounded font-bold text-lg"
+            className="bg-gradient-to-br from-blue-600 to-blue-800 active:from-blue-800 active:to-blue-950 px-6 py-4 rounded-full font-bold text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
           >
             전환
           </button>
@@ -785,7 +785,7 @@ const TetrisGame = () => {
               e.preventDefault();
               movePiece('left');
             }}
-            className="bg-gray-600 active:bg-gray-500 px-6 py-4 rounded flex items-center justify-center text-lg"
+            className="bg-gradient-to-br from-blue-600 to-blue-800 active:from-blue-800 active:to-blue-950 px-6 py-4 rounded-full flex items-center justify-center text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
           >
             <ChevronLeft size={24} />
           </button>
@@ -794,7 +794,7 @@ const TetrisGame = () => {
               e.preventDefault();
               movePiece('right');
             }}
-            className="bg-gray-600 active:bg-gray-500 px-6 py-4 rounded flex items-center justify-center text-lg"
+            className="bg-gradient-to-br from-blue-600 to-blue-800 active:from-blue-800 active:to-blue-950 px-6 py-4 rounded-full flex items-center justify-center text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
           >
             <ChevronRight size={24} />
           </button>
@@ -805,7 +805,7 @@ const TetrisGame = () => {
             e.preventDefault();
             hardDrop();
           }}
-          className="bg-red-600 active:bg-red-500 px-6 py-4 rounded font-bold text-lg"
+          className="bg-gradient-to-br from-red-600 to-red-800 active:from-red-800 active:to-red-950 px-6 py-4 rounded-full font-bold text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
         >
           DROP
         </button>
