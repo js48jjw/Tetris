@@ -76,6 +76,7 @@ const TETROMINOS: Tetrominos = {
 
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
+const NEXT_BLOCK_SIZE = 20; // 미리보기 블록을 위한 고정 크기
 const TETROMINO_KEYS = Object.keys(TETROMINOS);
 
 const TetrisGame = () => {
@@ -91,13 +92,13 @@ const TetrisGame = () => {
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [blockSize, setBlockSize] = useState<number>(25);
-  const [viewportHeight, setViewportHeight] = useState<number>(0);
   const [clearingRows, setClearingRows] = useState<number[]>([]);
   const [animationColumn, setAnimationColumn] = useState<number>(-1);
   const [isClearing, setIsClearing] = useState<boolean>(false);
 
   const gameLoopRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const dropTimeRef = useRef<number>(1000);
+  const gameContentRef = useRef<HTMLDivElement | null>(null);
 
   // Sound refs
   const bgmRef = useRef<HTMLAudioElement | null>(null);
@@ -162,34 +163,37 @@ const TetrisGame = () => {
 
   useEffect(() => {
     const calculateLayout = () => {
+      console.log("calculateLayout 함수 호출됨!");
       const vw = window.innerWidth;
       const vh = getViewportHeight();
 
-      setViewportHeight(vh);
+      // Get actual dimensions of the game content area
+      const gameContentWidth = gameContentRef.current ? gameContentRef.current.offsetWidth : vw; // Fallback to viewport width
+      const gameContentHeight = gameContentRef.current ? gameContentRef.current.offsetHeight : vh; // Fallback to viewport height
 
-      // 안전 여백 (상태바, 노치 등을 고려)
-      const safeTop = 40;
-      const safeBottom = 60; // 모바일 컨트롤이 항상 하단에 있으므로 고정
+      // UI 요소들의 예상 높이 (이제 board size 계산에는 직접 사용되지 않음)
+      const infoPanelWidth = 120; // max-w-[120px]
+      const gapBetweenBoardAndInfo = 16; // gap-4
       
-      // UI 요소들의 예상 높이
-      const titleHeight = 60;
-      const headerHeight = 50; // 점수 표시
-      const controlsHeight = 120; // 모바일 컨트롤 (항상 표시)
-      const padding = 16;
+      // 사용 가능한 공간 계산 (게임 보드 자체를 위한 공간)
+      const availableWidthForBoard = gameContentWidth - infoPanelWidth - gapBetweenBoardAndInfo;
+      const availableHeightForBoard = gameContentHeight; // Board takes full height of its container
       
-      // 사용 가능한 공간 계산
-      // 가로 모드 고려 없이 세로 모드에만 맞춰 계산
-      const availableHeight = vh - safeTop - safeBottom - titleHeight - headerHeight - controlsHeight - (padding * 2);
-      const availableWidth = vw - (padding * 2); 
-      
-      // 블록 크기 계산 (더 보수적으로)
-      const widthBasedSize = Math.floor(availableWidth / BOARD_WIDTH);
-      const heightBasedSize = Math.floor(availableHeight / BOARD_HEIGHT);
+      // 블록 크기 계산
+      const widthBasedSize = Math.floor(availableWidthForBoard / BOARD_WIDTH);
+      const heightBasedSize = Math.floor(availableHeightForBoard / BOARD_HEIGHT);
       const calculatedSize = Math.min(widthBasedSize, heightBasedSize);
       
       // 최소/최대 크기 제한
-      const newBlockSize = Math.max(15, Math.min(calculatedSize, 60));
+      const newBlockSize = Math.max(15, Math.min(calculatedSize, 80)); // Increased max size to 80
       setBlockSize(newBlockSize);
+
+      // Debugging: Log calculated values
+      console.log("Viewport Width:", vw, "Viewport Height:", vh);
+      console.log("Game Content Ref Width:", gameContentWidth, "Game Content Ref Height:", gameContentHeight);
+      console.log("Available Width (for board only):", availableWidthForBoard, "Available Height (for board only):", availableHeightForBoard);
+      console.log("Calculated Size (min of width/height based):", calculatedSize);
+      console.log("New Block Size (after max/min constraints):", newBlockSize);
     };
 
     calculateLayout();
@@ -200,11 +204,13 @@ const TetrisGame = () => {
 
     window.addEventListener('resize', handleResize);
     if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
     }
 
     return () => {
       window.removeEventListener('resize', handleResize);
       if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
       }
     };
   }, [getViewportHeight]);
@@ -560,65 +566,68 @@ const TetrisGame = () => {
 
   return (
     <div
-      className={`flex flex-col bg-gray-900 text-white font-mono overflow-hidden p-4`}
-      style={{
-        height: viewportHeight || '100vh',
-        minHeight: viewportHeight || '100vh',
-        maxHeight: viewportHeight || '100vh',
-      }}
+      className={`flex flex-col bg-gray-900 text-white font-mono overflow-hidden h-screen`}
     >
       <style jsx>{`
         .tetris-cyan {
-          background: linear-gradient(135deg, #67e8f9 0%, #22d3ee 50%, #0891b2 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #67e8f9 0%, #22d3ee 50%, #0891b2 100%);
           border-top: 1px solid #a5f3fc;
           border-left: 1px solid #a5f3fc;
           border-right: 1px solid #0891b2;
           border-bottom: 1px solid #0891b2;
         }
         .tetris-yellow {
-          background: linear-gradient(135deg, #fef08a 0%, #facc15 50%, #ca8a04 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #fef08a 0%, #facc15 50%, #ca8a04 100%);
           border-top: 1px solid #fef3c7;
           border-left: 1px solid #fef3c7;
           border-right: 1px solid #ca8a04;
           border-bottom: 1px solid #ca8a04;
         }
         .tetris-purple {
-          background: linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #7c3aed 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #c084fc 0%, #a855f7 50%, #7c3aed 100%);
           border-top: 1px solid #ddd6fe;
           border-left: 1px solid #ddd6fe;
           border-right: 1px solid #7c3aed;
           border-bottom: 1px solid #7c3aed;
         }
         .tetris-green {
-          background: linear-gradient(135deg, #86efac 0%, #22c55e 50%, #15803d 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #86efac 0%, #22c55e 50%, #15803d 100%);
           border-top: 1px solid #bbf7d0;
           border-left: 1px solid #bbf7d0;
           border-right: 1px solid #15803d;
           border-bottom: 1px solid #15803d;
         }
         .tetris-red {
-          background: linear-gradient(135deg, #fca5a5 0%, #ef4444 50%, #dc2626 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #fca5a5 0%, #ef4444 50%, #dc2626 100%);
           border-top: 1px solid #fecaca;
           border-left: 1px solid #fecaca;
           border-right: 1px solid #dc2626;
           border-bottom: 1px solid #dc2626;
         }
         .tetris-blue {
-          background: linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%);
           border-top: 1px solid #bfdbfe;
           border-left: 1px solid #bfdbfe;
           border-right: 1px solid #1d4ed8;
           border-bottom: 1px solid #1d4ed8;
         }
         .tetris-orange {
-          background: linear-gradient(135deg, #fdba74 0%, #f97316 50%, #ea580c 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #fdba74 0%, #f97316 50%, #ea580c 100%);
           border-top: 1px solid #fed7aa;
           border-left: 1px solid #fed7aa;
           border-right: 1px solid #ea580c;
           border-bottom: 1px solid #ea580c;
         }
         .tetris-gray {
-          background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 50%, #6b7280 100%);
+          background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.0) 100%),
+                      linear-gradient(135deg, #d1d5db 0%, #9ca3af 50%, #6b7280 100%);
           border-top: 1px solid #e5e7eb;
           border-left: 1px solid #e5e7eb;
           border-right: 1px solid #6b7280;
@@ -637,12 +646,12 @@ const TetrisGame = () => {
       `}</style>
 
       {/* 제목 */}
-      <h1 className="text-4xl font-bold text-center text-green-400 mb-4 drop-shadow-lg">
+      <h1 className="text-2xl font-bold text-center text-green-400 drop-shadow-lg">
         Tetris Game
       </h1>
 
       {/* 게임 보드 및 정보 패널 (세로 모드에서도 가로 배치) */}
-      <div className={`flex flex-grow justify-center items-center gap-4 flex-row`}>
+      <div ref={gameContentRef} className={`flex flex-grow justify-center items-center gap-4 flex-row`}>
         {/* 게임 보드 */}
         <div
           className={`relative bg-gray-800 border-2 border-gray-700 rounded-sm shadow-lg flex-shrink-0 mx-auto`}
@@ -652,10 +661,6 @@ const TetrisGame = () => {
             display: 'grid',
             gridTemplateColumns: `repeat(${BOARD_WIDTH}, ${blockSize}px)`,
             gridTemplateRows: `repeat(${BOARD_HEIGHT}, ${blockSize}px)`,
-            minWidth: `${BOARD_WIDTH * 15}px`,
-            minHeight: `${BOARD_HEIGHT * 15}px`,
-            maxWidth: `${BOARD_WIDTH * 35}px`,
-            maxHeight: `${BOARD_HEIGHT * 35}px`,
             boxShadow: '0 0 15px rgba(0,255,0,0.5), 0 0 30px rgba(0,255,0,0.3), 0 0 45px rgba(0,255,0,0.1)'
           }}
         >
@@ -723,41 +728,52 @@ const TetrisGame = () => {
         </div>
 
         {/* 게임 정보 및 다음 블록 패널 (항상 우측에 배치) */}
-        <div className={`flex flex-col justify-center items-center gap-2 max-w-[120px] h-full`}>
-          <div className="text-sm">Score: <span className="font-bold text-yellow-400">{score}</span></div>
-          <div className="text-sm">Lines: <span className="font-bold text-cyan-400">{lines}</span></div>
-          <div className="text-sm">Level: <span className="font-bold text-purple-400">{level}</span></div>
+        <div className={`flex flex-col justify-center items-start gap-2 max-w-[120px] h-full`}>
+          <div className="text-sm text-left">Score: <span className="font-bold text-yellow-400">{score}</span></div>
+          <div className="text-sm text-left">Lines: <span className="font-bold text-cyan-400">{lines}</span></div>
+          <div className="text-sm text-left">Level: <span className="font-bold text-purple-400">{level}</span></div>
 
           {nextPiece && (
             <div className={`mt-2 text-center`}>
               <h3 className="text-sm mb-1 text-gray-300">Next</h3>
               <div
-                className="bg-gray-800 border-2 border-gray-700 p-1 rounded-sm shadow-inner"
+                className="bg-gray-800 border-2 border-gray-700 rounded-sm shadow-inner"
                 style={{
-                  width: `${blockSize * 4}px`,
-                  height: `${blockSize * 4}px`,
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${nextPiece.shape[0].length}, ${blockSize}px)`,
-                  gridTemplateRows: `repeat(${nextPiece.shape.length}, ${blockSize}px)`,
-                  margin: 'auto'
+                  width: `${NEXT_BLOCK_SIZE * 4}px`,
+                  height: `${NEXT_BLOCK_SIZE * 4}px`,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  margin: 'auto',
+                  padding: '0px',
+                  boxSizing: 'border-box'
                 }}
               >
-                {nextPiece.shape.map((row, y) => (
-                  row.map((cell, x) => (
-                    <div
-                      key={`${y}-${x}`}
-                      className={`
-                        ${cell ? nextPiece.color : 'bg-gray-800'}
-                        ${cell ? 'border border-gray-700' : ''}
-                      `}
-                      style={{
-                        width: `${blockSize}px`,
-                        height: `${blockSize}px`,
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  ))
-                ))}
+                {/* 이 내부 div가 테트로미노의 실제 그리드가 됩니다 */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${nextPiece.shape[0].length}, ${NEXT_BLOCK_SIZE}px)`,
+                    gridTemplateRows: `repeat(${nextPiece.shape.length}, ${NEXT_BLOCK_SIZE}px)`,
+                  }}
+                >
+                  {nextPiece.shape.map((row, y) => (
+                    row.map((cell, x) => (
+                      <div
+                        key={`${y}-${x}`}
+                        className={`
+                          ${cell ? nextPiece.color : 'bg-gray-800'}
+                          ${cell ? 'border border-gray-700' : ''}
+                        `}
+                        style={{
+                          width: `${NEXT_BLOCK_SIZE}px`,
+                          height: `${NEXT_BLOCK_SIZE}px`,
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    ))
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -765,7 +781,28 @@ const TetrisGame = () => {
       </div>
 
       {/* 조작 버튼 (메인화면 하단) */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-950 p-4 mt-auto flex justify-between items-center w-full max-w-sm mx-auto rounded-xl shadow-2xl">
+      <div className="bg-gradient-to-br from-gray-800 to-gray-950 py-2 px-2 mt-auto flex justify-around items-center w-full max-w-sm mx-auto rounded-xl shadow-2xl">
+        <div className="flex gap-2 ml-[-0.5rem]">
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              movePiece('left');
+            }}
+            className="bg-gray-700 active:bg-gray-600 px-6 py-4 rounded-md flex items-center justify-center text-white text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
+          >
+            <ChevronLeft size={24} />
+          </button>
+          <button
+            onTouchStart={(e) => {
+              e.preventDefault();
+              movePiece('right');
+            }}
+            className="bg-gray-700 active:bg-gray-600 px-6 py-4 rounded-md flex items-center justify-center text-white text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95 ml-[-0.25rem]"
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
+
         <div className="flex gap-2">
           <button
             onTouchStart={(e) => {
@@ -776,39 +813,20 @@ const TetrisGame = () => {
                 playSound(rotateSoundRef);
               }
             }}
-            className="bg-gradient-to-br from-blue-600 to-blue-800 active:from-blue-800 active:to-blue-950 px-6 py-4 rounded-full font-bold text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
+            className="bg-gradient-to-br from-blue-600 to-blue-800 active:from-blue-800 active:to-blue-950 px-6 py-4 rounded-md font-bold text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95 ml-2"
           >
-            전환
+            ROT
           </button>
           <button
             onTouchStart={(e) => {
               e.preventDefault();
-              movePiece('left');
+              hardDrop();
             }}
-            className="bg-gradient-to-br from-blue-600 to-blue-800 active:from-blue-800 active:to-blue-950 px-6 py-4 rounded-full flex items-center justify-center text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
+            className="bg-gradient-to-br from-red-600 to-red-800 active:from-red-800 active:to-red-950 px-4 py-4 rounded-md font-bold text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
           >
-            <ChevronLeft size={24} />
-          </button>
-          <button
-            onTouchStart={(e) => {
-              e.preventDefault();
-              movePiece('right');
-            }}
-            className="bg-gradient-to-br from-blue-600 to-blue-800 active:from-blue-800 active:to-blue-950 px-6 py-4 rounded-full flex items-center justify-center text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
-          >
-            <ChevronRight size={24} />
+            DROP
           </button>
         </div>
-
-        <button
-          onTouchStart={(e) => {
-            e.preventDefault();
-            hardDrop();
-          }}
-          className="bg-gradient-to-br from-red-600 to-red-800 active:from-red-800 active:to-red-950 px-6 py-4 rounded-full font-bold text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
-        >
-          DROP
-        </button>
       </div>
     </div>
   );
