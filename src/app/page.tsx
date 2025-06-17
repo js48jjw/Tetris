@@ -76,7 +76,7 @@ const TETROMINOS: Tetrominos = {
 
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
-const NEXT_BLOCK_SIZE = 20; // 미리보기 블록을 위한 고정 크기
+const NEXT_BLOCK_SIZE = 12; // 미리보기 블록을 위한 고정 크기 (20에서 10으로 변경)
 const TETROMINO_KEYS = Object.keys(TETROMINOS);
 
 const TetrisGame = () => {
@@ -172,11 +172,10 @@ const TetrisGame = () => {
       const gameContentHeight = gameContentRef.current ? gameContentRef.current.offsetHeight : vh; // Fallback to viewport height
 
       // UI 요소들의 예상 높이 (이제 board size 계산에는 직접 사용되지 않음)
-      const infoPanelWidth = 120; // max-w-[120px]
-      const gapBetweenBoardAndInfo = 16; // gap-4
+      // ... existing code ...
       
       // 사용 가능한 공간 계산 (게임 보드 자체를 위한 공간)
-      const availableWidthForBoard = gameContentWidth - infoPanelWidth - gapBetweenBoardAndInfo;
+      const availableWidthForBoard = gameContentWidth; // infoPanelWidth와 gapBetweenBoardAndInfo를 더 이상 빼지 않음
       const availableHeightForBoard = gameContentHeight; // Board takes full height of its container
       
       // 블록 크기 계산
@@ -185,7 +184,7 @@ const TetrisGame = () => {
       const calculatedSize = Math.min(widthBasedSize, heightBasedSize);
       
       // 최소/최대 크기 제한
-      const newBlockSize = Math.max(15, Math.min(calculatedSize, 80)); // Increased max size to 80
+      const newBlockSize = Math.max(20, calculatedSize); // 최소 크기 20으로 설정
       setBlockSize(newBlockSize);
 
       // Debugging: Log calculated values
@@ -353,6 +352,7 @@ const TetrisGame = () => {
         // No lines to clear, proceed as usual
         setBoard(newBoard);
         if (currentPiece.y <= 1) {
+          console.log("Game Over triggered in movePiece (currentPiece.y <= 1)");
           setGameOver(true);
           setGameStarted(false);
           resetBGM();
@@ -386,7 +386,7 @@ const TetrisGame = () => {
             currentAnimatedPiece = { ...currentAnimatedPiece, y: currentAnimatedPiece.y + 1 };
             setCurrentPiece(currentAnimatedPiece); // Update state to trigger re-render
             scoreAccumulated += 2; // Score per row dropped
-            setTimeout(animateStep, 20); // Small delay for animation speed
+            setTimeout(animateStep, 10); // Small delay for animation speed
         } else {
             // Animation complete, finalize placement
             const newBoard = placePiece(currentAnimatedPiece, board);
@@ -403,6 +403,7 @@ const TetrisGame = () => {
                 setBoard(newBoard);
 
                 if (currentAnimatedPiece.y <= 1) { // Check final position for game over
+                    console.log("Game Over triggered in hardDrop (currentAnimatedPiece.y <= 1)");
                     setGameOver(true);
                     setGameStarted(false);
                     resetBGM();
@@ -426,14 +427,17 @@ const TetrisGame = () => {
   // 게임 루프 시작 및 정지
   useEffect(() => {
     if (gameStarted && !gameOver && !isPaused) {
+      console.log(`Game loop started with drop time: ${dropTimeRef.current}ms`);
       gameLoopRef.current = setInterval(gameLoop, dropTimeRef.current);
     } else {
       if (gameLoopRef.current) {
+        console.log("Game loop stopped.");
         clearInterval(gameLoopRef.current);
       }
     }
     return () => {
       if (gameLoopRef.current) {
+        console.log("Game loop stopped.");
         clearInterval(gameLoopRef.current);
       }
     };
@@ -460,6 +464,7 @@ const TetrisGame = () => {
         const newLevel = Math.floor(newLines / 10) + 1;
         setLevel(newLevel);
         dropTimeRef.current = Math.max(50, 1000 - (newLevel - 1) * 100);
+        console.log(`Level updated to: ${newLevel}, Drop Time: ${dropTimeRef.current}ms`);
         return newLines;
       });
 
@@ -646,96 +651,34 @@ const TetrisGame = () => {
       `}</style>
 
       {/* 제목 */}
-      <h1 className="text-2xl font-bold text-center text-green-400 drop-shadow-lg">
-        Tetris Game
+      <h1 className="text-5xl font-bold text-center text-green-400 drop-shadow-lg">
+        TETRIS
       </h1>
 
-      {/* 게임 보드 및 정보 패널 (세로 모드에서도 가로 배치) */}
-      <div ref={gameContentRef} className={`flex flex-grow justify-center items-center gap-4 flex-row`}>
-        {/* 게임 보드 */}
-        <div
-          className={`relative bg-gray-800 border-2 border-gray-700 rounded-sm shadow-lg flex-shrink-0 mx-auto`}
-          style={{
-            width: `${BOARD_WIDTH * blockSize}px`,
-            height: `${BOARD_HEIGHT * blockSize}px`,
-            display: 'grid',
-            gridTemplateColumns: `repeat(${BOARD_WIDTH}, ${blockSize}px)`,
-            gridTemplateRows: `repeat(${BOARD_HEIGHT}, ${blockSize}px)`,
-            boxShadow: '0 0 15px rgba(0,255,0,0.5), 0 0 30px rgba(0,255,0,0.3), 0 0 45px rgba(0,255,0,0.1)'
-          }}
-        >
-          {displayBoard.map((row, y) => (
-            row.map((cell, x) => (
-              <div
-                key={`${y}-${x}`}
-                className={`
-                  ${cell === 0 ? 'bg-gray-800' : cell}
-                  ${isClearing && clearingRows.includes(y) ? 'flash-border' : ''}
-                `}
-                style={{
-                  width: `${blockSize}px`,
-                  height: `${blockSize}px`,
-                  boxSizing: 'border-box',
-                  border: '0.5px solid rgba(255, 255, 255, 0.05)', // Subtle grid lines
-                }}
-              />
-            ))
-          ))}
-
-          {/* 게임 오버 / 일시정지 오버레이 */}
-          {(gameOver || isPaused) && (
-            <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
-              <div className="text-center">
-                {gameOver && (
-                  <>
-                    <h2 className="text-5xl font-bold text-red-500 mb-4 animate-bounce">GAME OVER</h2>
-                    <p className="text-xl text-gray-300 mb-6">Score: {score}</p>
-                    <button
-                      onClick={initGame}
-                      className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
-                    >
-                      Play Again
-                    </button>
-                  </>
-                )}
-                {isPaused && !gameOver && (
-                  <>
-                    <h2 className="text-5xl font-bold text-yellow-400 mb-4 animate-pulse">PAUSED</h2>
-                    <p className="text-xl text-gray-300 mb-6">Press &apos;P&apos; to Resume</p>
-                    <button
-                      onClick={() => setIsPaused(false)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
-                    >
-                      Resume Game
-                    </button>
-                  </>
-                )}
+      {/* 새 컨테이너: 게임 정보 및 보드를 감쌈 */}
+      <div className="flex flex-col flex-grow items-center justify-center mt-[-40px]">
+        {/* 게임 정보 및 다음 블록 패널 (항상 표시, 메인 게임 보드 위에 배치) */}
+        <div className="flex justify-center items-center gap-6 mb-2 mt-0">
+          {gameStarted && (
+            <div className="flex justify-center items-center gap-6 mt-0">
+              <div className="flex flex-col items-center">
+                <div className="text-xl">Score:</div>
+                <div className="font-bold text-yellow-400 text-3xl">{score}</div>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="text-xl">Lines:</div>
+                <div className="font-bold text-cyan-400 text-3xl">{lines}</div>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="text-xl">Level:</div>
+                <div className="font-bold text-purple-400 text-3xl">{level}</div>
               </div>
             </div>
           )}
 
-          {/* 게임 시작 버튼 오버레이 */}
-          {!gameStarted && !gameOver && (
-            <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
-              <button
-                onClick={initGame}
-                className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-2xl shadow-lg transform transition duration-300 hover:scale-105"
-              >
-                Start Game
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* 게임 정보 및 다음 블록 패널 (항상 우측에 배치) */}
-        <div className={`flex flex-col justify-center items-start gap-2 max-w-[120px] h-full`}>
-          <div className="text-sm text-left">Score: <span className="font-bold text-yellow-400">{score}</span></div>
-          <div className="text-sm text-left">Lines: <span className="font-bold text-cyan-400">{lines}</span></div>
-          <div className="text-sm text-left">Level: <span className="font-bold text-purple-400">{level}</span></div>
-
-          {nextPiece && (
+          {nextPiece && !gameOver && (
             <div className={`mt-2 text-center`}>
-              <h3 className="text-sm mb-1 text-gray-300">Next</h3>
+              <h3 className="text-lg mb-1 text-gray-300">Next</h3>
               <div
                 className="bg-gray-800 border-2 border-gray-700 rounded-sm shadow-inner"
                 style={{
@@ -778,6 +721,83 @@ const TetrisGame = () => {
             </div>
           )}
         </div>
+
+        {/* 게임 보드 컨테이너 (ref={gameContentRef}는 이제 보드만 감쌈) */}
+        <div ref={gameContentRef} className={`flex justify-center items-center`}>
+          <div
+            className={`relative bg-gray-800 border-2 border-gray-700 rounded-sm shadow-lg flex-shrink-0 mx-auto`}
+            style={{
+              width: `${BOARD_WIDTH * blockSize}px`,
+              height: `${BOARD_HEIGHT * blockSize}px`,
+              display: 'grid',
+              gridTemplateColumns: `repeat(${BOARD_WIDTH}, ${blockSize}px)`,
+              gridTemplateRows: `repeat(${BOARD_HEIGHT}, ${blockSize}px)`,
+              boxShadow: '0 0 15px rgba(0,255,0,0.5), 0 0 30px rgba(0,255,0,0.3), 0 0 45px rgba(0,255,0,0.1)'
+            }}
+          >
+            {displayBoard.map((row, y) => (
+              row.map((cell, x) => (
+                <div
+                  key={`${y}-${x}`}
+                  className={`
+                    ${cell === 0 ? 'bg-gray-800' : cell}
+                    ${isClearing && clearingRows.includes(y) ? 'flash-border' : ''}
+                  `}
+                  style={{
+                    width: `${blockSize}px`,
+                    height: `${blockSize}px`,
+                    boxSizing: 'border-box',
+                    border: '0.5px solid rgba(255, 255, 255, 0.05)', // Subtle grid lines
+                  }}
+                />
+              ))
+            ))}
+
+            {/* 게임 오버 / 일시정지 오버레이 */}
+            {(gameOver || isPaused) && (
+              <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
+                <div className="text-center">
+                  {gameOver && (
+                    <>
+                      <h2 className="text-5xl font-bold text-red-500 mb-4 animate-bounce">GAME OVER</h2>
+                      <p className="text-xl text-gray-300 mb-6">Score: {score}</p>
+                      <button
+                        onClick={initGame}
+                        className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
+                      >
+                        Play Again
+                      </button>
+                    </>
+                  )}
+                  {isPaused && !gameOver && (
+                    <>
+                      <h2 className="text-5xl font-bold text-yellow-400 mb-4 animate-pulse">PAUSED</h2>
+                      <p className="text-xl text-gray-300 mb-6">Press &apos;P&apos; to Resume</p>
+                      <button
+                        onClick={() => setIsPaused(false)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-full text-lg shadow-lg transform transition duration-300 hover:scale-105"
+                      >
+                        Resume Game
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 게임 시작 버튼 오버레이 */}
+            {!gameStarted && !gameOver && (
+              <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center z-10">
+                <button
+                  onClick={initGame}
+                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full text-2xl shadow-lg transform transition duration-300 hover:scale-105"
+                >
+                  Start Game
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 조작 버튼 (메인화면 하단) */}
@@ -797,7 +817,7 @@ const TetrisGame = () => {
               e.preventDefault();
               movePiece('right');
             }}
-            className="bg-gray-700 active:bg-gray-600 px-6 py-4 rounded-md flex items-center justify-center text-white text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95 ml-[-0.25rem]"
+            className="bg-gray-700 active:bg-gray-600 px-6 py-4 rounded-md flex items-center justify-center text-white text-lg shadow-md transform transition duration-150 ease-in-out hover:scale-105 active:scale-95"
           >
             <ChevronRight size={24} />
           </button>
