@@ -99,6 +99,9 @@ const TetrisGame = () => {
   const gameLoopRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const dropTimeRef = useRef<number>(1000);
   const gameContentRef = useRef<HTMLDivElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const infoPanelRef = useRef<HTMLDivElement | null>(null);
+  const controlsRef = useRef<HTMLDivElement | null>(null);
 
   // Sound refs
   const bgmRef = useRef<HTMLAudioElement | null>(null);
@@ -167,32 +170,44 @@ const TetrisGame = () => {
       const vw = window.innerWidth;
       const vh = getViewportHeight();
 
-      // Get actual dimensions of the game content area
-      const gameContentWidth = gameContentRef.current ? gameContentRef.current.offsetWidth : vw; // Fallback to viewport width
-      const gameContentHeight = gameContentRef.current ? gameContentRef.current.offsetHeight : vh; // Fallback to viewport height
+      // Measure heights of other UI elements
+      const titleHeight = titleRef.current?.offsetHeight || 0;
+      const infoPanelHeight = infoPanelRef.current?.offsetHeight || 0;
+      const controlsHeight = controlsRef.current?.offsetHeight || 0;
 
-      // UI 요소들의 예상 높이 (이제 board size 계산에는 직접 사용되지 않음)
-      // ... existing code ...
+      // Calculate available vertical space for the board
+      // This is total viewport height minus heights of title, info panel, controls, and some buffer
+      // 80px is an estimated buffer for margins/paddings/gaps between elements
+      const verticalBuffer = 80; 
+      const availableHeightForBoard = vh - titleHeight - infoPanelHeight - controlsHeight - verticalBuffer;
       
-      // 사용 가능한 공간 계산 (게임 보드 자체를 위한 공간)
-      const availableWidthForBoard = gameContentWidth; // infoPanelWidth와 gapBetweenBoardAndInfo를 더 이상 빼지 않음
-      const availableHeightForBoard = gameContentHeight; // Board takes full height of its container
-      
-      // 블록 크기 계산
-      const widthBasedSize = Math.floor(availableWidthForBoard / BOARD_WIDTH);
-      const heightBasedSize = Math.floor(availableHeightForBoard / BOARD_HEIGHT);
-      const calculatedSize = Math.min(widthBasedSize, heightBasedSize);
-      
-      // 최소/최대 크기 제한
-      const newBlockSize = Math.max(20, calculatedSize); // 최소 크기 20으로 설정
+      // Horizontal space for the board
+      const availableWidthForBoard = vw;
+
+      // Ensure positive dimensions
+      const effectiveAvailableHeight = Math.max(0, availableHeightForBoard);
+      const effectiveAvailableWidth = Math.max(0, availableWidthForBoard);
+
+      const widthBasedSize = Math.floor(effectiveAvailableWidth / BOARD_WIDTH);
+      const heightBasedSize = Math.floor(effectiveAvailableHeight / BOARD_HEIGHT);
+      let calculatedSize = Math.min(widthBasedSize, heightBasedSize);
+
+      // Constraint: Maximum block size to prevent the game from being too huge on large screens
+      calculatedSize = Math.min(calculatedSize, 30); // Max 30px for desktop-like feel
+
+      // Constraint: Minimum block size for readability on small screens
+      const newBlockSize = Math.max(20, calculatedSize); // Min 20px for mobile
       setBlockSize(newBlockSize);
 
       // Debugging: Log calculated values
       console.log("Viewport Width:", vw, "Viewport Height:", vh);
-      console.log("Game Content Ref Width:", gameContentWidth, "Game Content Ref Height:", gameContentHeight);
-      console.log("Available Width (for board only):", availableWidthForBoard, "Available Height (for board only):", availableHeightForBoard);
-      console.log("Calculated Size (min of width/height based):", calculatedSize);
-      console.log("New Block Size (after max/min constraints):", newBlockSize);
+      console.log("Title Height:", titleHeight);
+      console.log("Info Panel Height:", infoPanelHeight);
+      console.log("Controls Height:", controlsHeight);
+      console.log("Available Height for Board (calculated):", availableHeightForBoard);
+      console.log("Available Width for Board (calculated):", availableWidthForBoard);
+      console.log("Calculated Size (raw):", calculatedSize);
+      console.log("New Block Size (final):", newBlockSize);
     };
 
     calculateLayout();
@@ -651,14 +666,14 @@ const TetrisGame = () => {
       `}</style>
 
       {/* 제목 */}
-      <h1 className="text-5xl font-bold text-center text-green-400 drop-shadow-lg">
+      <h1 ref={titleRef} className="text-5xl font-bold text-center text-green-400 drop-shadow-lg">
         TETRIS
       </h1>
 
       {/* 새 컨테이너: 게임 정보 및 보드를 감쌈 */}
       <div className="flex flex-col flex-grow items-center justify-center mt-[-40px]">
         {/* 게임 정보 및 다음 블록 패널 (항상 표시, 메인 게임 보드 위에 배치) */}
-        <div className="flex justify-center items-center gap-6 mb-2 mt-0">
+        <div ref={infoPanelRef} className="flex justify-center items-center gap-6 mb-2 mt-0">
           {gameStarted && (
             <div className="flex justify-center items-center gap-6 mt-0">
               <div className="flex flex-col items-center">
@@ -801,7 +816,7 @@ const TetrisGame = () => {
       </div>
 
       {/* 조작 버튼 (메인화면 하단) */}
-      <div className="bg-gradient-to-br from-gray-800 to-gray-950 py-2 px-2 mt-auto flex justify-around items-center w-full max-w-sm mx-auto rounded-xl shadow-2xl">
+      <div ref={controlsRef} className="bg-gradient-to-br from-gray-800 to-gray-950 py-2 px-2 mt-auto flex justify-around items-center w-full max-w-sm mx-auto rounded-xl shadow-2xl">
         <div className="flex gap-2 ml-[-0.5rem]">
           <button
             onTouchStart={(e) => {
