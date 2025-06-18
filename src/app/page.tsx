@@ -242,26 +242,6 @@ export default function TetrisGame() {
     return false;
   }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece]);
 
-  // 그 다음에 연속 이동 관련 함수들을 선언
-  const startContinuousMove = useCallback((dx: number) => {
-    if (moveIntervalRef.current) {
-      clearInterval(moveIntervalRef.current);
-    }
-    
-    movePiece(dx, 0, true);
-    
-    moveIntervalRef.current = setInterval(() => {
-      movePiece(dx, 0, true);
-    }, 100);
-  }, [movePiece]);
-  
-  const stopContinuousMove = useCallback(() => {
-    if (moveIntervalRef.current) {
-      clearInterval(moveIntervalRef.current);
-      moveIntervalRef.current = null;
-    }
-  }, []);
-
   // rotatePieceHandler 함수를 먼저 선언
   const rotatePieceHandler = useCallback(() => {
     if (!currentPiece || gameOver || isPaused) return;
@@ -678,8 +658,6 @@ export default function TetrisGame() {
           {/* 왼쪽 이동 */}
           <button
             style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
-            onTouchStart={() => startContinuousMove(-1)}
-            onTouchEnd={stopContinuousMove}
             onClick={() => movePiece(-1, 0, true)}
             className="col-span-1 h-16 bg-gray-600 hover:bg-gray-700 active:bg-gray-800 rounded-lg font-bold text-xl flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
@@ -689,8 +667,6 @@ export default function TetrisGame() {
           {/* 오른쪽 이동 */}
           <button
             style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
-            onTouchStart={() => startContinuousMove(1)}
-            onTouchEnd={stopContinuousMove}
             onClick={() => movePiece(1, 0, true)}
             className="col-span-1 h-16 bg-gray-600 hover:bg-gray-700 active:bg-gray-800 rounded-lg font-bold text-xl flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
