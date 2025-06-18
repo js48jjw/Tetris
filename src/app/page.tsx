@@ -9,7 +9,8 @@ interface Tetromino {
   key?: string;
 }
 
-type BoardCell = string | 0;
+// BoardCell 타입 확장
+type BoardCell = string | 0 | { color: string; isFalling?: boolean };
 type Board = BoardCell[][];
 type Position = { x: number; y: number };
 
@@ -45,6 +46,7 @@ const SOUND = {
   lineClear: '/sound/lineClear.mp3',
   collapse: '/sound/collapse.mp3',
   bgm: '/sound/tetris_BGM.mp3',
+  gameover: '/sound/gameover.mp3',
 };
 
 // 1. 사운드 객체 캐싱 및 중첩 방지
@@ -60,7 +62,13 @@ function safePlaySound(src: string, volume = 1, loop = false) {
   }
   audio.volume = volume;
   audio.loop = loop;
-  audio.play().catch(() => {});
+  audio.play().catch((e) => {
+    if (e.name === 'AbortError') {
+      // play()가 pause()로 중단된 경우는 무시
+      return;
+    }
+    console.error('오디오 재생 에러:', src, e);
+  });
   return audio;
 }
 
@@ -70,6 +78,9 @@ function calcLevel(lines: number) {
 }
 
 export default function TetrisGame() {
+  const [clearingRows, setClearingRows] = useState<number[]>([]);
+  const [isClearing, setIsClearing] = useState(false);
+  const [lineClearX, setLineClearX] = useState(0);
   const [board, setBoard] = useState<Board>(() => Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0)));
   const [currentPiece, setCurrentPiece] = useState<Tetromino | null>(null);
   const [currentPosition, setCurrentPosition] = useState<Position>({ x: 0, y: 0 });
@@ -140,13 +151,37 @@ export default function TetrisGame() {
     return newBoard;
   };
 
-  const clearLines = (board: Board): { board: Board; clearedLines: number } => {
-    const newBoard = board.filter((row: BoardCell[]) => row.some((cell: BoardCell) => !cell));
+  // 1. animateLineClear 먼저 선언
+  const animateLineClear = useCallback(async (rows: number[], newBoard: Board) => {
+    setClearingRows(rows);
+    setIsClearing(true);
+    setLineClearX(0);
+    setHardDropTrail([]);
+    const interval = 40; // ms, 한 칸씩 넘어가는 속도
+    for (let x = 0; x <= BOARD_WIDTH; x++) {
+      setLineClearX(x);
+      await new Promise(res => setTimeout(res, interval));
+    }
+    setClearingRows([]);
+    setIsClearing(false);
+    setLineClearX(0);
+    setBoard(newBoard);
+  }, []);
+
+  // 2. clearLines 함수
+  const clearLines = (board: Board): { board: Board; clearedLines: number; clearedRowIdxs: number[] } => {
+    const clearedRowIdxs: number[] = [];
+    const newBoard = board.filter((row: BoardCell[], idx) => {
+      const isFull = row.every((cell: BoardCell) => cell && typeof cell !== 'object');
+      if (isFull) clearedRowIdxs.push(idx);
+      return !isFull;
+    });
     const clearedLines = BOARD_HEIGHT - newBoard.length;
     const emptyRows = Array(clearedLines).fill(null).map(() => Array(BOARD_WIDTH).fill(0));
-    return { board: [...emptyRows, ...newBoard], clearedLines };
+    return { board: [...emptyRows, ...newBoard], clearedLines, clearedRowIdxs };
   };
 
+  // 3. spawnNewPiece 함수
   const spawnNewPiece = useCallback(() => {
     const piece = nextPiece || createRandomPiece();
     const newNextPiece = createRandomPiece();
@@ -154,13 +189,48 @@ export default function TetrisGame() {
       x: Math.floor((BOARD_WIDTH - piece.shape[0].length) / 2), 
       y: 0 
     };
-    
     setCurrentPiece(piece);
     setCurrentPosition(startPos);
     setNextPiece(newNextPiece);
-    
     return { piece, startPos };
   }, [nextPiece, createRandomPiece]);
+
+  // 4. finishHardDrop useCallback으로 감싸고, ref로 외부에서 참조할 수 있게 함
+  const finishHardDropRef = useRef<((newY: number, dropDistance: number) => void) | null>(null);
+  const finishHardDrop = useCallback((newY: number, dropDistance: number) => {
+    setScore(prev => prev + dropDistance * POINTS.HARD_DROP);
+    safePlaySound(SOUND.hardDrop, 0.7);
+    const newBoard = placePiece(board, currentPiece!, { ...currentPosition, y: newY });
+    const { board: clearedBoard, clearedLines, clearedRowIdxs } = clearLines(newBoard);
+    if (clearedLines > 0) {
+      safePlaySound(SOUND.collapse, 0.7);
+      animateLineClear(clearedRowIdxs, clearedBoard);
+    } else {
+      setBoard(clearedBoard);
+    }
+    setLines(prev => prev + clearedLines);
+    if (clearedLines > 0) {
+      let points = 0;
+      switch (clearedLines) {
+        case 1: points = POINTS.SINGLE; break;
+        case 2: points = POINTS.DOUBLE; break;
+        case 3: points = POINTS.TRIPLE; break;
+        case 4: points = POINTS.TETRIS; break;
+      }
+      setScore(prev => prev + points * level);
+    }
+    const newLines = lines + clearedLines;
+    const newLevel = calcLevel(newLines);
+    setLevel(newLevel);
+    const { piece: newPiece, startPos } = spawnNewPiece();
+    if (!isValidPosition(clearedBoard, newPiece, startPos)) {
+      setGameOver(true);
+      setGameStarted(false);
+      safePlaySound(SOUND.collapse, 1);
+      safePlaySound(SOUND.gameover, 1);
+    }
+  }, [board, currentPiece, currentPosition, level, lines, spawnNewPiece, animateLineClear]);
+  finishHardDropRef.current = finishHardDrop;
 
   // 3. BGM 관리 개선 (useEffect 내부)
   useEffect(() => {
@@ -177,7 +247,6 @@ export default function TetrisGame() {
     return () => {
       if (bgmAudio) {
         bgmAudio.pause();
-        bgmAudio.src = "";
         setBgmAudio(null);
       }
     };
@@ -188,28 +257,26 @@ export default function TetrisGame() {
   
   // 이동
   const movePiece = useCallback((dx: number, dy: number, isPlayerMove = false) => {
-    if (!currentPiece || gameOver || isPaused) return false;
+    if (!currentPiece || gameOver || isPaused || isClearing) return false;
     const newPos = { x: currentPosition.x + dx, y: currentPosition.y + dy };
     if (isValidPosition(board, currentPiece, newPos)) {
       setCurrentPosition(newPos);
-      // 소프트 드롭 점수 (플레이어가 아래로 이동할 때)
       if (isPlayerMove && dy > 0) {
         setScore(prev => prev + POINTS.SOFT_DROP);
       }
-      // 이동 효과음
       if (isPlayerMove) safePlaySound(SOUND.move, 0.5);
       return true;
     } else if (dy > 0) {
-      // 아래로 이동할 수 없으면 조각 고정
       const newBoard = placePiece(board, currentPiece, currentPosition);
-      const { board: clearedBoard, clearedLines } = clearLines(newBoard);
-      setBoard(clearedBoard);
+      const { board: clearedBoard, clearedLines, clearedRowIdxs } = clearLines(newBoard);
+      if (clearedLines > 0) {
+        safePlaySound(SOUND.collapse, 0.7);
+        animateLineClear(clearedRowIdxs, clearedBoard);
+      } else {
+        setBoard(clearedBoard);
+      }
       setLines(prev => prev + clearedLines);
-      // 고정 효과음 (바닥 도착)
       safePlaySound(SOUND.hardDrop, 0.7);
-      // 라인 삭제 효과음
-      if (clearedLines > 0) safePlaySound(SOUND.collapse, 0.7);
-      // 개선된 점수 계산
       if (clearedLines > 0) {
         let points = 0;
         switch (clearedLines) {
@@ -220,27 +287,20 @@ export default function TetrisGame() {
         }
         setScore(prev => prev + points * level);
       }
-      
-      // 레벨 계산 수정
       const newLines = lines + clearedLines;
       const newLevel = calcLevel(newLines);
       setLevel(newLevel);
-      
-      // 새 조각 생성
       const { piece: newPiece, startPos } = spawnNewPiece();
-      
-      // 게임 오버 체크
       if (!isValidPosition(clearedBoard, newPiece, startPos)) {
         setGameOver(true);
         setGameStarted(false);
-        // 게임오버 효과음
         safePlaySound(SOUND.collapse, 1);
+        safePlaySound(SOUND.gameover, 1);
       }
-      
       return false;
     }
     return false;
-  }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece]);
+  }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece, isClearing, animateLineClear]);
 
   // rotatePieceHandler 함수를 먼저 선언
   const rotatePieceHandler = useCallback(() => {
@@ -282,71 +342,33 @@ export default function TetrisGame() {
     safePlaySound(SOUND.rotate, 0.5);
   }, [currentPiece, gameOver, isPaused, rotatePieceHandler]);
 
-  // 컴포넌트 언마운트 시 interval 정리
-  useEffect(() => {
-    return () => {
-      if (moveIntervalRef.current) {
-        clearInterval(moveIntervalRef.current);
-      }
-    };
-  }, []);
+  // 하드드랍 잔상 상태
+  const [hardDropTrail, setHardDropTrail] = useState<{y: number, x: number, idx: number}[]>([]);
 
   const dropPiece = useCallback(() => {
     if (!currentPiece || gameOver || isPaused) return;
-    
-    let dropDistance = 0;
     let newY = currentPosition.y;
-    
-    // 하드 드롭 거리 계산
     while (isValidPosition(board, currentPiece, { ...currentPosition, y: newY + 1 })) {
       newY++;
-      dropDistance++;
     }
-    
-    // 하드 드롭 점수 추가
-    setScore(prev => prev + dropDistance * POINTS.HARD_DROP);
-    
-    // 하드 드롭 효과음
-    safePlaySound(SOUND.hardDrop, 0.7);
-    
-    // 조각 즉시 고정
-    const newBoard = placePiece(board, currentPiece, { ...currentPosition, y: newY });
-    const { board: clearedBoard, clearedLines } = clearLines(newBoard);
-    
-    setBoard(clearedBoard);
-    setLines(prev => prev + clearedLines);
-    
-    // 점수 계산
-    if (clearedLines > 0) {
-      let points = 0;
-      switch (clearedLines) {
-        case 1: points = POINTS.SINGLE; break;
-        case 2: points = POINTS.DOUBLE; break;
-        case 3: points = POINTS.TRIPLE; break;
-        case 4: points = POINTS.TETRIS; break;
+    // 각 블록 셀(x, y)에 대해 바닥에서 위로 MAX_TRAIL만큼만 잔상
+    const trail: {y: number, x: number, idx: number}[] = [];
+    for (let y = 0; y < currentPiece.shape.length; y++) {
+      for (let x = 0; x < currentPiece.shape[y].length; x++) {
+        if (currentPiece.shape[y][x]) {
+          const startY = currentPosition.y + y;
+          const endY = newY + y;
+          let idx = 0;
+          for (let ty = endY - 1; ty >= startY; ty--, idx++) {
+            trail.push({ y: ty, x: currentPosition.x + x, idx });
+          }
+        }
       }
-      setScore(prev => prev + points * level);
     }
-    
-    const newLines = lines + clearedLines;
-    const newLevel = calcLevel(newLines);
-    setLevel(newLevel);
-    
-    // 새 조각 생성
-    const { piece: newPiece, startPos } = spawnNewPiece();
-    
-    // 게임 오버 체크
-    if (!isValidPosition(clearedBoard, newPiece, startPos)) {
-      setGameOver(true);
-      setGameStarted(false);
-      safePlaySound(SOUND.collapse, 1);
-    }
-    
-    // 고정 효과음 (하드드롭)
-    safePlaySound(SOUND.hardDrop, 0.7);
-    // 라인 삭제 효과음
-    if (clearedLines > 0) safePlaySound(SOUND.collapse, 0.7);
-  }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece]);
+    setHardDropTrail(trail);
+    setTimeout(() => setHardDropTrail([]), 350);
+    finishHardDrop(newY, newY - currentPosition.y);
+  }, [currentPiece, currentPosition, board, gameOver, isPaused, finishHardDrop]);
 
   const startGame = () => {
     setBoard(Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0)));
@@ -438,7 +460,7 @@ export default function TetrisGame() {
   // 5. renderBoard useMemo 적용
   const displayBoard = useMemo(() => {
     const tempBoard = board.map(row => [...row]);
-    if (currentPiece) {
+    if (currentPiece && !isClearing) {
       for (let y = 0; y < currentPiece.shape.length; y++) {
         for (let x = 0; x < currentPiece.shape[y].length; x++) {
           if (currentPiece.shape[y][x]) {
@@ -452,30 +474,30 @@ export default function TetrisGame() {
       }
     }
     return tempBoard;
-  }, [board, currentPiece, currentPosition]);
+  }, [board, currentPiece, currentPosition, isClearing]);
 
-  const getCellColor = (cell: BoardCell) => {
-    if (!cell) return 'bg-gray-900 border border-gray-700';
-    if (typeof cell !== 'string') return 'bg-white';
-    // 각 블록 색상에 맞는 border 색상 적용 (조건문으로 명확하게 분기)
-    switch (cell) {
-      case 'cyan':
-        return 'bg-gradient-to-t from-cyan-600 to-cyan-300 border border-cyan-600';
-      case 'yellow':
-        return 'bg-gradient-to-t from-yellow-400 to-yellow-200 border border-yellow-400';
-      case 'purple':
-        return 'bg-gradient-to-t from-purple-600 to-purple-300 border border-purple-500';
-      case 'green':
-        return 'bg-gradient-to-t from-green-600 to-green-300 border border-green-500';
-      case 'red':
-        return 'bg-gradient-to-t from-red-600 to-red-300 border border-red-500';
-      case 'blue':
-        return 'bg-gradient-to-t from-blue-600 to-blue-300 border border-blue-500';
-      case 'orange':
-        return 'bg-gradient-to-t from-orange-500 to-orange-200 border border-orange-400';
-      default:
-        return 'bg-white';
+  // getCellColor: string만 처리
+  const getCellColor = (cell: BoardCell, y?: number, x?: number): string => {
+    let base = '';
+    if (!cell) base = 'bg-gray-900 border border-gray-700';
+    else if (typeof cell !== 'string') base = 'bg-white';
+    else {
+      switch (cell) {
+        case 'cyan': base = 'bg-gradient-to-t from-cyan-600 to-cyan-300 border border-cyan-600'; break;
+        case 'yellow': base = 'bg-gradient-to-t from-yellow-400 to-yellow-200 border border-yellow-400'; break;
+        case 'purple': base = 'bg-gradient-to-t from-purple-600 to-purple-300 border border-purple-500'; break;
+        case 'green': base = 'bg-gradient-to-t from-green-600 to-green-300 border border-green-500'; break;
+        case 'red': base = 'bg-gradient-to-t from-red-600 to-red-300 border border-red-500'; break;
+        case 'blue': base = 'bg-gradient-to-t from-blue-600 to-blue-300 border border-blue-500'; break;
+        case 'orange': base = 'bg-gradient-to-t from-orange-500 to-orange-200 border border-orange-400'; break;
+        default: base = 'bg-white';
+      }
     }
+    if (typeof y === 'number' && clearingRows.includes(y)) {
+      const delay = x ? x * 40 : 0;
+      return `${base} tetris-line-clear` + (delay ? ` animate-[tetris-line-clear_0.5s_ease-in_forwards_${delay}ms]` : '');
+    }
+    return base;
   };
 
   const renderPiecePreview = (piece: Tetromino | null, size = 'w-16 h-16') => {
@@ -542,10 +564,39 @@ export default function TetrisGame() {
     );
   };
 
+  useEffect(() => {
+    return () => {
+      const interval = moveIntervalRef.current;
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, []);
+
+  // 보드 렌더링 시 trail 인덱스별로 opacity 다르게
+  const getTrailIdx = (y: number, x: number) => {
+    const t = hardDropTrail.find(t => t.y === y && t.x === x);
+    return t ? t.idx : -1;
+  };
+
+  // trail 인덱스별로 스타일 반환 (아래가 진하고 위로 갈수록 연해짐)
+  const getTrailStyle = (idx: number, totalTrail: number) => {
+    const t = totalTrail > 1 ? idx / (totalTrail - 1) : 0;
+    const alpha = 0.3 * Math.pow(1 - t, 15.5);
+    return {
+      background: `rgba(255,255,255,${alpha})`,
+      boxShadow: `0 0 8px 2px rgba(255,255,255,${alpha}), 0 0 2px 1px rgba(255,255,255,${alpha})`,
+      zIndex: 1,
+      animation: 'harddrop-fade 0.35s linear'
+    };
+  };
+
+  const isEmptyCell = (cell: BoardCell) => !cell;
+
   return (
     <div className="flex flex-col items-center justify-center p-4 bg-black min-h-screen text-white">
       <h1
-        className="text-5xl md:text-6xl font-extrabold mb-4 whitespace-nowrap tracking-widest bg-gradient-to-r from-purple-700 to-purple-300 bg-clip-text text-transparent"
+        className="text-7xl md:text-8xl font-extrabold mb-4 whitespace-nowrap tracking-widest bg-gradient-to-r from-[#FF3B30] via-[#FF9500] via-[#FFCC00] via-[#34C759] via-[#007AFF] via-[#5856D6] to-[#D6A4FF] bg-clip-text text-transparent"
         style={{
           textShadow: `
             0 2px 0 #3b0764,
@@ -563,18 +614,21 @@ export default function TetrisGame() {
       <div className="flex gap-8 items-center justify-center">
         {/* 게임 보드 */}
         <div className="relative">
-          <div
-            className="mx-auto aspect-[10/20] max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg min-w-[200px] min-h-[400px] grid gap-0 bg-gray-800 p-0 border-2 border-gray-600 shadow-[0_0_40px_10px_rgba(34,197,94,0.5)] box-border"
-            style={{ gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)` }}
-          >
-            {displayBoard.map((row, y) =>
-              row.map((cell, x) => (
-                <div
-                  key={`${y}-${x}`}
-                  className={`w-full aspect-square ${getCellColor(cell)}`}
-                />
-              ))
-            )}
+          <div className="mx-auto w-full max-w-md border-8 border-gray-400 rounded-2xl p-1 bg-black shadow-[0_0_40px_10px_rgba(34,197,94,0.5)]">
+            <div
+              className="aspect-[10/20] max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg min-w-[200px] min-h-[400px] grid gap-0 bg-gray-900 p-0 overflow-hidden box-border"
+              style={{ gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)` }}
+            >
+              {displayBoard.map((row, y) =>
+                row.map((cell, x) => (
+                  <div
+                    key={`${y}-${x}`}
+                    className={`w-full aspect-square ${getCellColor(cell, y, x)}${clearingRows.includes(y) && x <= lineClearX ? ' line-clear-active' : ''}${getTrailIdx(y, x) >= 0 && isEmptyCell(cell) ? ' harddrop-trail' : ''}`}
+                    style={getTrailIdx(y, x) >= 0 && isEmptyCell(cell) ? getTrailStyle(getTrailIdx(y, x), hardDropTrail.length) : {}}
+                  />
+                ))
+              )}
+            </div>
           </div>
           
           {/* 게임 오버 오버레이 */}
@@ -597,7 +651,7 @@ export default function TetrisGame() {
           {isPaused && gameStarted && !gameOver && (
             <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-yellow-400 mb-2">일시정지</h2>
+                <h2 className="text-4xl font-bold text-yellow-400 mb-2">일시정지</h2>
               </div>
             </div>
           )}
@@ -605,26 +659,28 @@ export default function TetrisGame() {
         
         {/* 오른쪽 패널 - 게임 정보 */}
         <div className="space-y-4">
-          <div className="bg-gray-800 p-1 rounded text-center">
-            <h3 className="text-sm font-bold whitespace-nowrap">점수</h3>
-            <p className="text-lg font-mono text-cyan-400 whitespace-nowrap">{score.toLocaleString()}</p>
-          </div>
-          
-          <div className="bg-gray-800 p-1 rounded text-center">
-            <h3 className="text-sm font-bold whitespace-nowrap">레벨</h3>
-            <p className="text-lg font-mono text-yellow-400 whitespace-nowrap">{level}</p>
-          </div>
-          
-          <div className="bg-gray-800 p-1 rounded text-center">
-            <h3 className="text-sm font-bold whitespace-nowrap">라인</h3>
-            <p className="text-lg font-mono text-green-400 whitespace-nowrap">{lines}</p>
-          </div>
-          
-          {/* NEXT 블록 미리보기 */}
+          {/* NEXT 블록 미리보기 - 제일 위로 이동 */}
           <div className="bg-gray-800 p-1 rounded text-center">
             <h3 className="text-sm font-bold mb-0 whitespace-nowrap">NEXT</h3>
             <div className="flex justify-center">
               {renderPiecePreview(nextPiece, 'w-16 h-13')}
+            </div>
+          </div>
+          {/* NEXT와 점수창 사이 간격 넓힘 */}
+          <div className="mt-6" />
+          {/* 점수, 레벨, 라인 - 간격을 더 붙이고 일정하게 */}
+          <div className="flex flex-col space-y-1">
+            <div className="bg-gray-800 p-1 rounded text-center">
+              <h3 className="text-sm font-bold whitespace-nowrap">점수</h3>
+              <p className="text-lg font-mono text-cyan-400 whitespace-nowrap">{score.toLocaleString()}</p>
+            </div>
+            <div className="bg-gray-800 p-1 rounded text-center">
+              <h3 className="text-sm font-bold whitespace-nowrap">레벨</h3>
+              <p className="text-lg font-mono text-yellow-400 whitespace-nowrap">{level}</p>
+            </div>
+            <div className="bg-gray-800 p-1 rounded text-center">
+              <h3 className="text-sm font-bold whitespace-nowrap">라인</h3>
+              <p className="text-lg font-mono text-green-400 whitespace-nowrap">{lines}</p>
             </div>
           </div>
           
@@ -677,7 +733,7 @@ export default function TetrisGame() {
           <button
             style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
             onClick={handleRotate}
-            className="col-span-1 h-16 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg font-bold text-sm flex items-center justify-center touch-manipulation whitespace-nowrap"
+            className="col-span-1 h-16 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg font-bold text-xl flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
           >
             회전
@@ -686,7 +742,7 @@ export default function TetrisGame() {
           <button
             style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
             onClick={dropPiece}
-            className="col-span-1 h-16 bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg font-bold text-sm flex items-center justify-center touch-manipulation whitespace-nowrap"
+            className="col-span-1 h-16 bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg font-bold text-xl flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
           >
             드롭
@@ -699,3 +755,6 @@ export default function TetrisGame() {
     </div>
   );
 }
+
+
+
