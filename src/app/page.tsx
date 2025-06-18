@@ -2,6 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
+// beforeinstallprompt 이벤트 타입 정의
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
 // 타입 정의 추가
 interface Tetromino {
   shape: number[][];
@@ -79,7 +85,7 @@ export default function TetrisGame() {
 
   const [bgmAudio, setBgmAudio] = useState<HTMLAudioElement | null>(null);
 
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstall, setShowInstall] = useState(false);
 
   // 7-bag 랜덤 생성 시스템 (더 공정한 조각 분배)
@@ -338,11 +344,11 @@ export default function TetrisGame() {
     spawnNewPiece();
   };
 
-  const togglePause = () => {
-    if (gameStarted && !gameOver) {
-      setIsPaused(prev => !prev);
-    }
-  };
+  // togglePause useCallback으로 감싸기
+  const togglePause = useCallback(() => {
+    if (gameOver) return;
+    setIsPaused((prev) => !prev);
+  }, [gameOver]);
 
   // 키보드 입력 처리
   useEffect(() => {
@@ -522,9 +528,10 @@ export default function TetrisGame() {
   };
 
   useEffect(() => {
-    const handler = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
+    const handler = (e: Event) => {
+      const event = e as BeforeInstallPromptEvent;
+      event.preventDefault();
+      setDeferredPrompt(event);
       setShowInstall(true);
     };
     window.addEventListener('beforeinstallprompt', handler);
