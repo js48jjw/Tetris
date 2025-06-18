@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 // beforeinstallprompt 이벤트 타입 정의
 interface BeforeInstallPromptEvent extends Event {
@@ -15,13 +15,9 @@ interface Tetromino {
   key?: string;
 }
 
-interface Position {
-  x: number;
-  y: number;
-}
-
 type BoardCell = string | 0;
 type Board = BoardCell[][];
+type Position = { x: number; y: number };
 
 const BOARD_WIDTH = 10;
 const BOARD_HEIGHT = 20;
@@ -57,13 +53,26 @@ const SOUND = {
   bgm: '/sound/tetris_BGM.mp3',
 };
 
-// 효과음 재생 함수
-function playSound(src: string, volume = 1, loop = false) {
-  const audio = new Audio(src);
+// 1. 사운드 객체 캐싱 및 중첩 방지
+const soundCache: Record<string, HTMLAudioElement> = {};
+function safePlaySound(src: string, volume = 1, loop = false) {
+  if (!soundCache[src]) {
+    soundCache[src] = new Audio(src);
+  }
+  const audio = soundCache[src];
+  if (!audio.paused) {
+    audio.pause();
+    audio.currentTime = 0;
+  }
   audio.volume = volume;
   audio.loop = loop;
   audio.play();
   return audio;
+}
+
+// 2. 점수/레벨/효과음 유틸 함수 분리 (컴포넌트 외부)
+function calcLevel(lines: number) {
+  return Math.floor(lines / 10) + 1;
 }
 
 export default function TetrisGame() {
@@ -78,7 +87,6 @@ export default function TetrisGame() {
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
-  const [lastDrop, setLastDrop] = useState<number>(Date.now());
   
   // 7-bag 시스템을 위한 상태
   const bagRef = useRef<string[]>([]);
@@ -163,11 +171,11 @@ export default function TetrisGame() {
     return { piece, startPos };
   }, [nextPiece, createRandomPiece]);
 
-  // BGM 관리
+  // 3. BGM 관리 개선 (useEffect 내부)
   useEffect(() => {
     if (gameStarted && !gameOver && !isPaused) {
       if (!bgmAudio) {
-        const audio = playSound(SOUND.bgm, 0.3, true);
+        const audio = safePlaySound(SOUND.bgm, 0.3, true);
         setBgmAudio(audio);
       } else {
         bgmAudio.play();
@@ -176,12 +184,13 @@ export default function TetrisGame() {
       bgmAudio?.pause();
     }
     return () => {
-      bgmAudio?.pause();
-      bgmAudio?.remove();
-      setBgmAudio(null);
+      if (bgmAudio) {
+        bgmAudio.pause();
+        bgmAudio.src = "";
+        setBgmAudio(null);
+      }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameStarted, gameOver, isPaused]);
+  }, [gameStarted, gameOver, isPaused, bgmAudio]);
 
   // 이동
   const movePiece = useCallback((dx: number, dy: number, isPlayerMove = false) => {
@@ -194,7 +203,7 @@ export default function TetrisGame() {
         setScore(prev => prev + POINTS.SOFT_DROP);
       }
       // 이동 효과음
-      if (isPlayerMove) playSound(SOUND.move, 0.5);
+      if (isPlayerMove) safePlaySound(SOUND.move, 0.5);
       return true;
     } else if (dy > 0) {
       // 아래로 이동할 수 없으면 조각 고정
@@ -203,9 +212,9 @@ export default function TetrisGame() {
       setBoard(clearedBoard);
       setLines(prev => prev + clearedLines);
       // 고정 효과음 (바닥 도착)
-      playSound(SOUND.hardDrop, 0.7);
+      safePlaySound(SOUND.hardDrop, 0.7);
       // 라인 삭제 효과음
-      if (clearedLines > 0) playSound(SOUND.collapse, 0.7);
+      if (clearedLines > 0) safePlaySound(SOUND.collapse, 0.7);
       // 개선된 점수 계산
       if (clearedLines > 0) {
         let points = 0;
@@ -220,7 +229,7 @@ export default function TetrisGame() {
       
       // 레벨 계산 수정
       const newLines = lines + clearedLines;
-      const newLevel = Math.floor(newLines / 10) + 1;
+      const newLevel = calcLevel(newLines);
       setLevel(newLevel);
       
       // 새 조각 생성
@@ -231,7 +240,7 @@ export default function TetrisGame() {
         setGameOver(true);
         setGameStarted(false);
         // 게임오버 효과음
-        playSound(SOUND.collapse, 1);
+        safePlaySound(SOUND.collapse, 1);
       }
       
       return false;
@@ -265,7 +274,7 @@ export default function TetrisGame() {
         setCurrentPosition(testPos);
         
         // 회전 효과음
-        playSound(SOUND.rotate, 0.5);
+        safePlaySound(SOUND.rotate, 0.5);
         break;
       }
     }
@@ -287,7 +296,7 @@ export default function TetrisGame() {
     setScore(prev => prev + dropDistance * POINTS.HARD_DROP);
     
     // 하드 드롭 효과음
-    playSound(SOUND.hardDrop, 0.7);
+    safePlaySound(SOUND.hardDrop, 0.7);
     
     // 조각 즉시 고정
     const newBoard = placePiece(board, currentPiece, { ...currentPosition, y: newY });
@@ -309,7 +318,7 @@ export default function TetrisGame() {
     }
     
     const newLines = lines + clearedLines;
-    const newLevel = Math.floor(newLines / 10) + 1;
+    const newLevel = calcLevel(newLines);
     setLevel(newLevel);
     
     // 새 조각 생성
@@ -319,13 +328,13 @@ export default function TetrisGame() {
     if (!isValidPosition(clearedBoard, newPiece, startPos)) {
       setGameOver(true);
       setGameStarted(false);
-      playSound(SOUND.collapse, 1);
+      safePlaySound(SOUND.collapse, 1);
     }
     
     // 고정 효과음 (하드드롭)
-    playSound(SOUND.hardDrop, 0.7);
+    safePlaySound(SOUND.hardDrop, 0.7);
     // 라인 삭제 효과음
-    if (clearedLines > 0) playSound(SOUND.collapse, 0.7);
+    if (clearedLines > 0) safePlaySound(SOUND.collapse, 0.7);
   }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece]);
 
   const startGame = () => {
@@ -350,68 +359,63 @@ export default function TetrisGame() {
     setIsPaused((prev) => !prev);
   }, [gameOver]);
 
-  // 키보드 입력 처리
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (!gameStarted) return;
-      
-      switch (e.key) {
-        case 'ArrowLeft':
-        case 'a':
-        case 'A':
-          e.preventDefault();
-          movePiece(-1, 0, true);
-          break;
-        case 'ArrowRight':
-        case 'd':
-        case 'D':
-          e.preventDefault();
-          movePiece(1, 0, true);
-          break;
-        case 'ArrowDown':
-        case 's':
-        case 'S':
-          e.preventDefault();
-          movePiece(0, 1, true);
-          break;
-        case 'ArrowUp':
-        case 'w':
-        case 'W':
-          e.preventDefault();
-          rotatePieceHandler();
-          break;
-        case ' ':
-          e.preventDefault();
-          dropPiece();
-          break;
-        case 'p':
-        case 'P':
-          e.preventDefault();
-          togglePause();
-          break;
-      }
-    };
+  // 3. 키보드 이벤트 등록 useCallback으로 핸들러 고정
+  const handleKeyPress = useCallback((e: KeyboardEvent) => {
+    if (!gameStarted) return;
+    switch (e.key) {
+      case 'ArrowLeft':
+      case 'a':
+      case 'A':
+        e.preventDefault();
+        movePiece(-1, 0, true);
+        break;
+      case 'ArrowRight':
+      case 'd':
+      case 'D':
+        e.preventDefault();
+        movePiece(1, 0, true);
+        break;
+      case 'ArrowDown':
+      case 's':
+      case 'S':
+        e.preventDefault();
+        movePiece(0, 1, true);
+        break;
+      case 'ArrowUp':
+      case 'w':
+      case 'W':
+        e.preventDefault();
+        rotatePieceHandler();
+        break;
+      case ' ':
+        e.preventDefault();
+        dropPiece();
+        break;
+      case 'p':
+      case 'P':
+        e.preventDefault();
+        togglePause();
+        break;
+    }
+  }, [gameStarted, movePiece, rotatePieceHandler, dropPiece, togglePause]);
 
+  useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [movePiece, rotatePieceHandler, dropPiece, gameStarted, togglePause]);
+  }, [handleKeyPress]);
 
-  // 개선된 게임 루프 (더 정확한 타이밍)
+  // 4. 게임 루프 setTimeout으로 변경
   useEffect(() => {
     if (!gameStarted || gameOver || isPaused) return;
-    
+    let timer: NodeJS.Timeout;
     const dropInterval = Math.max(50, 1000 - (level - 1) * 100);
-    
-    const timer = setInterval(() => {
-      const now = Date.now();
-      if (now - lastDrop >= dropInterval) {
-        movePiece(0, 1);
-        setLastDrop(now);
-      }
-    }, 16); // 60fps
-
-    return () => clearInterval(timer);
-  }, [movePiece, level, gameStarted, gameOver, isPaused, lastDrop]);
+    const loop = () => {
+      movePiece(0, 1);
+      timer = setTimeout(loop, dropInterval);
+    };
+    timer = setTimeout(loop, dropInterval);
+    return () => clearTimeout(timer);
+  }, [movePiece, level, gameStarted, gameOver, isPaused]);
 
   // 게임 시작시 첫 조각 생성
   useEffect(() => {
@@ -420,9 +424,9 @@ export default function TetrisGame() {
     }
   }, [gameStarted, currentPiece, spawnNewPiece]);
 
-  const renderBoard = () => {
-    const displayBoard = board.map(row => [...row]);
-    // 현재 조각 표시
+  // 5. renderBoard useMemo 적용
+  const displayBoard = useMemo(() => {
+    const tempBoard = board.map(row => [...row]);
     if (currentPiece) {
       for (let y = 0; y < currentPiece.shape.length; y++) {
         for (let x = 0; x < currentPiece.shape[y].length; x++) {
@@ -430,14 +434,14 @@ export default function TetrisGame() {
             const boardY = currentPosition.y + y;
             const boardX = currentPosition.x + x;
             if (boardY >= 0 && boardY < BOARD_HEIGHT && boardX >= 0 && boardX < BOARD_WIDTH) {
-              displayBoard[boardY][boardX] = currentPiece.color;
+              tempBoard[boardY][boardX] = currentPiece.color;
             }
           }
         }
       }
     }
-    return displayBoard;
-  };
+    return tempBoard;
+  }, [board, currentPiece, currentPosition]);
 
   const getCellColor = (cell: BoardCell) => {
     if (!cell) return 'bg-gray-900 border border-gray-700';
@@ -558,7 +562,7 @@ export default function TetrisGame() {
             className="mx-auto aspect-[10/20] max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg min-w-[200px] min-h-[400px] grid gap-0 bg-gray-800 p-0 border-2 border-gray-600 shadow-[0_0_40px_10px_rgba(34,197,94,0.5)] box-border"
             style={{ gridTemplateColumns: `repeat(${BOARD_WIDTH}, 1fr)` }}
           >
-            {renderBoard().map((row, y) =>
+            {displayBoard.map((row, y) =>
               row.map((cell, x) => (
                 <div
                   key={`${y}-${x}`}
