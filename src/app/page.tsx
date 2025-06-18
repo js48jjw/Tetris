@@ -611,9 +611,9 @@ export default function TetrisGame() {
         TETRIS
       </h1>
       
-      <div className="flex gap-8 items-center justify-center">
+      <div className="flex gap-2 items-center justify-start">
         {/* 게임 보드 */}
-        <div className="relative">
+        <div className="relative ml-4">
           <div className="mx-auto w-full max-w-md border-8 border-gray-400 rounded-2xl p-1 bg-black shadow-[0_0_40px_10px_rgba(34,197,94,0.5)]">
             <div
               className="aspect-[10/20] max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg min-w-[200px] min-h-[400px] grid gap-0 bg-gray-900 p-0 overflow-hidden box-border"

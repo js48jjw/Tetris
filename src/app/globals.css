@@ -23,6 +23,11 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  overflow: hidden;
+}
+
+html, body {
+  overflow: hidden;
 }
 
 /* 하드 드롭 애니메이션 */
