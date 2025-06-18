@@ -192,6 +192,9 @@ export default function TetrisGame() {
     };
   }, [gameStarted, gameOver, isPaused, bgmAudio]);
 
+  // 연속 이동을 위한 interval ref 추가
+  const moveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   // 이동
   const movePiece = useCallback((dx: number, dy: number, isPlayerMove = false) => {
     if (!currentPiece || gameOver || isPaused) return false;
@@ -248,7 +251,27 @@ export default function TetrisGame() {
     return false;
   }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece]);
 
-  // 벽 킥 시스템이 적용된 회전
+  // 그 다음에 연속 이동 관련 함수들을 선언
+  const startContinuousMove = useCallback((dx: number) => {
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current);
+    }
+    
+    movePiece(dx, 0, true);
+    
+    moveIntervalRef.current = setInterval(() => {
+      movePiece(dx, 0, true);
+    }, 100);
+  }, [movePiece]);
+  
+  const stopContinuousMove = useCallback(() => {
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current);
+      moveIntervalRef.current = null;
+    }
+  }, []);
+
+  // rotatePieceHandler 함수를 먼저 선언
   const rotatePieceHandler = useCallback(() => {
     if (!currentPiece || gameOver || isPaused) return;
     const rotatedPiece = rotatePiece(currentPiece);
@@ -272,13 +295,30 @@ export default function TetrisGame() {
       if (isValidPosition(board, rotatedPiece, testPos)) {
         setCurrentPiece(rotatedPiece);
         setCurrentPosition(testPos);
-        
-        // 회전 효과음
-        safePlaySound(SOUND.rotate, 0.5);
         break;
       }
     }
   }, [currentPiece, board, currentPosition, gameOver, isPaused]);
+
+  // 그 다음에 handleRotate 함수 선언
+  const handleRotate = useCallback(() => {
+    if (!currentPiece || gameOver || isPaused) return;
+    
+    // 연속 이동 중에도 회전이 가능하도록
+    rotatePieceHandler();
+    
+    // 회전 효과음
+    safePlaySound(SOUND.rotate, 0.5);
+  }, [currentPiece, gameOver, isPaused, rotatePieceHandler]);
+
+  // 컴포넌트 언마운트 시 interval 정리
+  useEffect(() => {
+    return () => {
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current);
+      }
+    };
+  }, []);
 
   const dropPiece = useCallback(() => {
     if (!currentPiece || gameOver || isPaused) return;
@@ -385,7 +425,7 @@ export default function TetrisGame() {
       case 'w':
       case 'W':
         e.preventDefault();
-        rotatePieceHandler();
+        handleRotate();
         break;
       case ' ':
         e.preventDefault();
@@ -397,7 +437,7 @@ export default function TetrisGame() {
         togglePause();
         break;
     }
-  }, [gameStarted, movePiece, rotatePieceHandler, dropPiece, togglePause]);
+  }, [gameStarted, movePiece, handleRotate, dropPiece, togglePause]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyPress);
@@ -652,6 +692,8 @@ export default function TetrisGame() {
         <div className="grid grid-cols-4 gap-3">
           {/* 왼쪽 이동 */}
           <button
+            onTouchStart={() => startContinuousMove(-1)}
+            onTouchEnd={stopContinuousMove}
             onClick={() => movePiece(-1, 0, true)}
             className="col-span-1 h-16 bg-gray-600 hover:bg-gray-700 active:bg-gray-800 rounded-lg font-bold text-xl flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
@@ -660,15 +702,18 @@ export default function TetrisGame() {
           </button>
           {/* 오른쪽 이동 */}
           <button
+            onTouchStart={() => startContinuousMove(1)}
+            onTouchEnd={stopContinuousMove}
             onClick={() => movePiece(1, 0, true)}
             className="col-span-1 h-16 bg-gray-600 hover:bg-gray-700 active:bg-gray-800 rounded-lg font-bold text-xl flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
           >
             →
           </button>
-          {/* 회전 */}
+          {/* 회전 버튼 */}
           <button
-            onClick={rotatePieceHandler}
+            onClick={handleRotate}
+            onTouchStart={handleRotate}
             className="col-span-1 h-16 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg font-bold text-sm flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
           >
