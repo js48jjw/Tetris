@@ -2,12 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
-// beforeinstallprompt 이벤트 타입 정의
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
-
 // 타입 정의 추가
 interface Tetromino {
   shape: number[][];
@@ -66,7 +60,7 @@ function safePlaySound(src: string, volume = 1, loop = false) {
   }
   audio.volume = volume;
   audio.loop = loop;
-  audio.play();
+  audio.play().catch(() => {});
   return audio;
 }
 
@@ -92,9 +86,6 @@ export default function TetrisGame() {
   const bagRef = useRef<string[]>([]);
 
   const [bgmAudio, setBgmAudio] = useState<HTMLAudioElement | null>(null);
-
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showInstall, setShowInstall] = useState(false);
 
   // 7-bag 랜덤 생성 시스템 (더 공정한 조각 분배)
   const createRandomPiece = useCallback((): Tetromino => {
@@ -571,29 +562,23 @@ export default function TetrisGame() {
     );
   };
 
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const event = e as BeforeInstallPromptEvent;
-      event.preventDefault();
-      setDeferredPrompt(event);
-      setShowInstall(true);
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstallClick = () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      deferredPrompt.userChoice.then(() => {
-        setShowInstall(false);
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col items-center justify-center p-4 bg-black min-h-screen text-white">
-      <h1 className="text-4xl font-extrabold mb-4 text-green-300 whitespace-nowrap">TETRIS</h1>
+      <h1
+        className="text-5xl md:text-6xl font-extrabold mb-4 whitespace-nowrap tracking-widest bg-gradient-to-r from-purple-700 to-purple-300 bg-clip-text text-transparent"
+        style={{
+          textShadow: `
+            0 2px 0 #3b0764,
+            0 4px 0 #1e034d,
+            0 6px 8px #a78bfa,
+            2px 2px 0 #ede9fe,
+            0 0 32px #c4b5fd,
+            0 8px 16px #0008
+          `
+        }}
+      >
+        TETRIS
+      </h1>
       
       <div className="flex gap-8 items-center justify-center">
         {/* 게임 보드 */}
@@ -657,9 +642,9 @@ export default function TetrisGame() {
           
           {/* NEXT 블록 미리보기 */}
           <div className="bg-gray-800 p-1 rounded text-center">
-            <h3 className="text-sm font-bold mb-2 whitespace-nowrap">NEXT</h3>
+            <h3 className="text-sm font-bold mb-0 whitespace-nowrap">NEXT</h3>
             <div className="flex justify-center">
-              {renderPiecePreview(nextPiece, 'w-16 h-16')}
+              {renderPiecePreview(nextPiece, 'w-16 h-13')}
             </div>
           </div>
           
@@ -692,6 +677,7 @@ export default function TetrisGame() {
         <div className="grid grid-cols-4 gap-3">
           {/* 왼쪽 이동 */}
           <button
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
             onTouchStart={() => startContinuousMove(-1)}
             onTouchEnd={stopContinuousMove}
             onClick={() => movePiece(-1, 0, true)}
@@ -702,6 +688,7 @@ export default function TetrisGame() {
           </button>
           {/* 오른쪽 이동 */}
           <button
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
             onTouchStart={() => startContinuousMove(1)}
             onTouchEnd={stopContinuousMove}
             onClick={() => movePiece(1, 0, true)}
@@ -712,8 +699,8 @@ export default function TetrisGame() {
           </button>
           {/* 회전 버튼 */}
           <button
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
             onClick={handleRotate}
-            onTouchStart={handleRotate}
             className="col-span-1 h-16 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg font-bold text-sm flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
           >
@@ -721,6 +708,7 @@ export default function TetrisGame() {
           </button>
           {/* 하드 드롭 */}
           <button
+            style={{ userSelect: 'none', WebkitUserSelect: 'none', msUserSelect: 'none', touchAction: 'none' }}
             onClick={dropPiece}
             className="col-span-1 h-16 bg-red-600 hover:bg-red-700 active:bg-red-800 rounded-lg font-bold text-sm flex items-center justify-center touch-manipulation whitespace-nowrap"
             disabled={!gameStarted || gameOver || isPaused}
@@ -729,28 +717,6 @@ export default function TetrisGame() {
           </button>
         </div>
       </div>
-      
-      {/* PWA 설치 안내 버튼 */}
-      {showInstall && (
-        <button
-          onClick={handleInstallClick}
-          style={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            zIndex: 1000,
-            background: '#06b6d4',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 8,
-            padding: '12px 20px',
-            fontSize: 18,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
-          }}
-        >
-          앱 설치하기
-        </button>
-      )}
       
       {/* tailwind purge 방지용 더미 */}
       <div className="hidden border-cyan-600 border-blue-500 from-cyan-600 to-cyan-300 from-blue-600 to-blue-300"></div>
