@@ -79,6 +79,9 @@ export default function TetrisGame() {
 
   const [bgmAudio, setBgmAudio] = useState<HTMLAudioElement | null>(null);
 
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstall, setShowInstall] = useState(false);
+
   // 7-bag 랜덤 생성 시스템 (더 공정한 조각 분배)
   const createRandomPiece = useCallback((): Tetromino => {
     if (bagRef.current.length === 0) {
@@ -518,6 +521,25 @@ export default function TetrisGame() {
     );
   };
 
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        setShowInstall(false);
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center p-4 bg-black min-h-screen text-white">
       <h1 className="text-4xl font-extrabold mb-4 text-green-300 whitespace-nowrap">TETRIS</h1>
@@ -651,6 +673,28 @@ export default function TetrisGame() {
           </button>
         </div>
       </div>
+      
+      {/* PWA 설치 안내 버튼 */}
+      {showInstall && (
+        <button
+          onClick={handleInstallClick}
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            zIndex: 1000,
+            background: '#06b6d4',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '12px 20px',
+            fontSize: 18,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+          }}
+        >
+          앱 설치하기
+        </button>
+      )}
       
       {/* tailwind purge 방지용 더미 */}
       <div className="hidden border-cyan-600 border-blue-500 from-cyan-600 to-cyan-300 from-blue-600 to-blue-300"></div>
