@@ -693,11 +693,11 @@ export default function TetrisGame() {
             </div>
             <div className="bg-gray-800 p-1 rounded text-center">
               <h3 className="text-sm font-bold whitespace-nowrap">레벨</h3>
-              <div className="flex items-center justify-center gap-0">
+              <div className="flex items-center justify-center gap-0.5">
                 {/* ▼ 버튼 */}
                 <button
                   type="button"
-                  className="px-0 text-yellow-300 disabled:text-gray-500 focus:outline-none"
+                  className="px-0.5 text-yellow-300 disabled:text-gray-500 focus:outline-none"
                   style={{ fontSize: '1.2em', lineHeight: 1 }}
                   onClick={() => setStartLevel((prev) => Math.max(1, prev - 1))}
                   disabled={gameStarted || startLevel <= 1}
@@ -712,7 +712,7 @@ export default function TetrisGame() {
                 {/* ▲ 버튼 */}
                 <button
                   type="button"
-                  className="px-0 text-yellow-300 disabled:text-gray-500 focus:outline-none"
+                  className="px-0.5 text-yellow-300 disabled:text-gray-500 focus:outline-none"
                   style={{ fontSize: '1.2em', lineHeight: 1 }}
                   onClick={() => setStartLevel((prev) => Math.min(30, prev + 1))}
                   disabled={gameStarted || startLevel >= 30}
