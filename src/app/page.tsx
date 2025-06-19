@@ -70,6 +70,7 @@ function safePlaySound(src: string, volume = 1, loop = false) {
     const audio = new Audio(src);
     audio.volume = volume;
     audio.loop = loop;
+    audio.currentTime = 0.2; // 0.2초 뒤부터 재생
     audio.play().catch((e) => {
       if (e.name === 'AbortError') return;
       console.error('오디오 재생 에러:', src, e);
@@ -641,8 +642,7 @@ export default function TetrisGame() {
           {gameOver && (
             <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
               <div className="text-center">
-                <h2 className="text-5xl md:text-7xl font-extrabold text-red-400 mb-4 drop-shadow-lg animate-pulse">게임 오버!</h2>
-                <p className="text-lg mb-2">점수: {score.toLocaleString()}</p>
+                <h2 className="text-5xl md:text-7xl font-extrabold text-red-400 mb-4 drop-shadow-lg animate-pulse">게임 오버!</h2>             <p className="text-lg mb-2">점수: {score.toLocaleString()}</p>
                 <button
                   onClick={startGame}
                   className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded font-bold"
