@@ -641,7 +641,7 @@ export default function TetrisGame() {
           {gameOver && (
             <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
               <div className="text-center">
-                <h2 className="text-2xl font-bold text-red-400 mb-2">게임 오버!</h2>
+                <h2 className="text-5xl md:text-7xl font-extrabold text-red-400 mb-4 drop-shadow-lg animate-pulse">게임 오버!</h2>
                 <p className="text-lg mb-2">점수: {score.toLocaleString()}</p>
                 <button
                   onClick={startGame}
