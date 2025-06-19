@@ -71,7 +71,7 @@ function safePlaySound(src: string, volume = 1, loop = false) {
     audio.volume = volume;
     audio.loop = loop;
     audio.addEventListener('canplaythrough', function handler() {
-      audio.currentTime = 0.2;
+      audio.currentTime = 0.1;
       audio.play().catch((e) => {
         if (e.name === 'AbortError') return;
         console.error('오디오 재생 에러:', src, e);
@@ -80,7 +80,7 @@ function safePlaySound(src: string, volume = 1, loop = false) {
     });
     // 혹시 이미 로드된 경우 바로 재생
     if (audio.readyState >= 3) {
-      audio.currentTime = 0.2;
+      audio.currentTime = 0.1;
       audio.play().catch((e) => {
         if (e.name === 'AbortError') return;
         console.error('오디오 재생 에러:', src, e);
