@@ -49,27 +49,33 @@ const SOUND = {
   gameover: '/sound/gameover.mp3',
 };
 
-// 1. 사운드 객체 캐싱 및 중첩 방지
-const soundCache: Record<string, HTMLAudioElement> = {};
+// BGM만 캐싱, 효과음은 매번 새로 생성
+const bgmCache: Record<string, HTMLAudioElement> = {};
 function safePlaySound(src: string, volume = 1, loop = false) {
-  if (!soundCache[src]) {
-    soundCache[src] = new Audio(src);
-  }
-  const audio = soundCache[src];
-  if (!audio.paused) {
-    audio.pause();
-    audio.currentTime = 0;
-  }
-  audio.volume = volume;
-  audio.loop = loop;
-  audio.play().catch((e) => {
-    if (e.name === 'AbortError') {
-      // play()가 pause()로 중단된 경우는 무시
-      return;
+  // BGM만 캐싱
+  if (src === SOUND.bgm) {
+    if (!bgmCache[src]) {
+      bgmCache[src] = new Audio(src);
     }
-    console.error('오디오 재생 에러:', src, e);
-  });
-  return audio;
+    const audio = bgmCache[src];
+    audio.volume = volume;
+    audio.loop = loop;
+    audio.play().catch((e) => {
+      if (e.name === 'AbortError') return;
+      console.error('오디오 재생 에러:', src, e);
+    });
+    return audio;
+  } else {
+    // 효과음은 매번 새로 생성
+    const audio = new Audio(src);
+    audio.volume = volume;
+    audio.loop = loop;
+    audio.play().catch((e) => {
+      if (e.name === 'AbortError') return;
+      console.error('오디오 재생 에러:', src, e);
+    });
+    return audio;
+  }
 }
 
 // 2. 점수/레벨/효과음 유틸 함수 분리 (컴포넌트 외부)
