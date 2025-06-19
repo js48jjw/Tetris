@@ -381,7 +381,7 @@ export default function TetrisGame() {
     setBoard(Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0)));
     setScore(0);
     setLevel(startLevel);
-    setLines((startLevel - 1) * 10);
+    setLines(0);
     setGameOver(false);
     setIsPaused(false);
     setGameStarted(true);
