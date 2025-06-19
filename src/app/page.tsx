@@ -70,11 +70,22 @@ function safePlaySound(src: string, volume = 1, loop = false) {
     const audio = new Audio(src);
     audio.volume = volume;
     audio.loop = loop;
-    audio.currentTime = 0.2; // 0.2초 뒤부터 재생
-    audio.play().catch((e) => {
-      if (e.name === 'AbortError') return;
-      console.error('오디오 재생 에러:', src, e);
+    audio.addEventListener('canplaythrough', function handler() {
+      audio.currentTime = 0.2;
+      audio.play().catch((e) => {
+        if (e.name === 'AbortError') return;
+        console.error('오디오 재생 에러:', src, e);
+      });
+      audio.removeEventListener('canplaythrough', handler);
     });
+    // 혹시 이미 로드된 경우 바로 재생
+    if (audio.readyState >= 3) {
+      audio.currentTime = 0.2;
+      audio.play().catch((e) => {
+        if (e.name === 'AbortError') return;
+        console.error('오디오 재생 에러:', src, e);
+      });
+    }
     return audio;
   }
 }
