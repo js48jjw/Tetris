@@ -448,16 +448,12 @@ export default function TetrisGame() {
   useEffect(() => {
     if (!gameStarted || gameOver || isPaused) return;
     let timer: NodeJS.Timeout;
-    // 레벨별 속도 완만하게 조정
+    // 레벨별 속도 조정: 1~9레벨은 100ms씩, 10레벨부터는 10ms씩, 최소 50ms
     let dropInterval = 1000;
     if (level <= 9) {
       dropInterval = 1000 - (level - 1) * 100;
-    } else if (level === 10) {
-      dropInterval = 150;
-    } else if (level === 11) {
-      dropInterval = 100;
     } else {
-      dropInterval = 50;
+      dropInterval = Math.max(50, 200 - (level - 10) * 10);
     }
     const loop = () => {
       movePiece(0, 1);
