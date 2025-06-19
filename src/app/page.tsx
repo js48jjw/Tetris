@@ -80,7 +80,7 @@ function safePlaySound(src: string, volume = 1, loop = false) {
 
 // 2. 점수/레벨/효과음 유틸 함수 분리 (컴포넌트 외부)
 function calcLevel(lines: number, startLevel: number = 1) {
-  return Math.floor(lines / 10) + startLevel;
+  return Math.floor(lines / 10) + (startLevel - 1) + 1;
 }
 
 export default function TetrisGame() {
@@ -652,7 +652,8 @@ export default function TetrisGame() {
           {gameOver && (
             <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
               <div className="text-center">
-                <h2 className="text-5xl md:text-7xl font-extrabold text-red-400 mb-4 drop-shadow-lg animate-pulse">게임 오버!</h2>             <p className="text-lg mb-2">점수: {score.toLocaleString()}</p>
+                <h2 className="text-4xl md:text-5xl font-extrabold text-red-400 mb-4 drop-shadow-lg animate-pulse">게임 오버!</h2>
+                <p className="text-lg mb-2">점수: {score.toLocaleString()}</p>
                 <button
                   onClick={startGame}
                   className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded font-bold"
@@ -692,14 +693,14 @@ export default function TetrisGame() {
             </div>
             <div className="bg-gray-800 p-1 rounded text-center">
               <h3 className="text-sm font-bold whitespace-nowrap">레벨</h3>
-              <div className="flex items-center justify-center gap-0.5">
+              <div className="flex items-center justify-center gap-0">
                 {/* ▼ 버튼 */}
                 <button
                   type="button"
                   className="px-0.5 text-yellow-300 disabled:text-gray-500 focus:outline-none"
                   style={{ fontSize: '1.2em', lineHeight: 1 }}
                   onClick={() => setStartLevel((prev) => Math.max(1, prev - 1))}
-                  disabled={gameStarted || gameOver || startLevel <= 1}
+                  disabled={gameStarted || startLevel <= 1}
                   aria-label="레벨 내리기"
                 >
                   ▼
@@ -714,7 +715,7 @@ export default function TetrisGame() {
                   className="px-0.5 text-yellow-300 disabled:text-gray-500 focus:outline-none"
                   style={{ fontSize: '1.2em', lineHeight: 1 }}
                   onClick={() => setStartLevel((prev) => Math.min(30, prev + 1))}
-                  disabled={gameStarted || gameOver || startLevel >= 30}
+                  disabled={gameStarted || startLevel >= 30}
                   aria-label="레벨 올리기"
                 >
                   ▲
