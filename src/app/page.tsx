@@ -79,8 +79,8 @@ function safePlaySound(src: string, volume = 1, loop = false) {
 }
 
 // 2. 점수/레벨/효과음 유틸 함수 분리 (컴포넌트 외부)
-function calcLevel(lines: number) {
-  return Math.floor(lines / 10) + 1;
+function calcLevel(lines: number, startLevel: number = 1) {
+  return Math.floor(lines / 10) + startLevel;
 }
 
 export default function TetrisGame() {
@@ -227,7 +227,7 @@ export default function TetrisGame() {
       setScore(prev => prev + points * level);
     }
     const newLines = lines + clearedLines;
-    const newLevel = calcLevel(newLines);
+    const newLevel = calcLevel(newLines, startLevel);
     setLevel(newLevel);
     const { piece: newPiece, startPos } = spawnNewPiece();
     if (!isValidPosition(clearedBoard, newPiece, startPos)) {
@@ -236,7 +236,7 @@ export default function TetrisGame() {
       safePlaySound(SOUND.collapse, 1);
       safePlaySound(SOUND.gameover, 1);
     }
-  }, [board, currentPiece, currentPosition, level, lines, spawnNewPiece, animateLineClear]);
+  }, [board, currentPiece, currentPosition, level, lines, spawnNewPiece, animateLineClear, startLevel]);
   finishHardDropRef.current = finishHardDrop;
 
   // 3. BGM 관리 개선 (useEffect 내부)
@@ -295,7 +295,7 @@ export default function TetrisGame() {
         setScore(prev => prev + points * level);
       }
       const newLines = lines + clearedLines;
-      const newLevel = calcLevel(newLines);
+      const newLevel = calcLevel(newLines, startLevel);
       setLevel(newLevel);
       const { piece: newPiece, startPos } = spawnNewPiece();
       if (!isValidPosition(clearedBoard, newPiece, startPos)) {
@@ -307,7 +307,7 @@ export default function TetrisGame() {
       return false;
     }
     return false;
-  }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece, isClearing, animateLineClear]);
+  }, [currentPiece, currentPosition, board, gameOver, isPaused, level, lines, spawnNewPiece, isClearing, animateLineClear, startLevel]);
 
   // rotatePieceHandler 함수를 먼저 선언
   const rotatePieceHandler = useCallback(() => {
@@ -381,7 +381,7 @@ export default function TetrisGame() {
     setBoard(Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0)));
     setScore(0);
     setLevel(startLevel);
-    setLines(0);
+    setLines((startLevel - 1) * 10);
     setGameOver(false);
     setIsPaused(false);
     setGameStarted(true);
@@ -692,11 +692,11 @@ export default function TetrisGame() {
             </div>
             <div className="bg-gray-800 p-1 rounded text-center">
               <h3 className="text-sm font-bold whitespace-nowrap">레벨</h3>
-              <div className="flex items-center justify-center gap-1">
+              <div className="flex items-center justify-center gap-0.5">
                 {/* ▼ 버튼 */}
                 <button
                   type="button"
-                  className="px-1 text-yellow-300 disabled:text-gray-500 focus:outline-none"
+                  className="px-0.5 text-yellow-300 disabled:text-gray-500 focus:outline-none"
                   style={{ fontSize: '1.2em', lineHeight: 1 }}
                   onClick={() => setStartLevel((prev) => Math.max(1, prev - 1))}
                   disabled={gameStarted || gameOver || startLevel <= 1}
@@ -711,7 +711,7 @@ export default function TetrisGame() {
                 {/* ▲ 버튼 */}
                 <button
                   type="button"
-                  className="px-1 text-yellow-300 disabled:text-gray-500 focus:outline-none"
+                  className="px-0.5 text-yellow-300 disabled:text-gray-500 focus:outline-none"
                   style={{ fontSize: '1.2em', lineHeight: 1 }}
                   onClick={() => setStartLevel((prev) => Math.min(30, prev + 1))}
                   disabled={gameStarted || gameOver || startLevel >= 30}
