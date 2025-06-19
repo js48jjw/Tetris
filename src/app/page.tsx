@@ -98,6 +98,7 @@ export default function TetrisGame() {
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [startLevel, setStartLevel] = useState<number>(1);
   
   // 7-bag 시스템을 위한 상태
   const bagRef = useRef<string[]>([]);
@@ -379,7 +380,7 @@ export default function TetrisGame() {
   const startGame = () => {
     setBoard(Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0)));
     setScore(0);
-    setLevel(1);
+    setLevel(startLevel);
     setLines(0);
     setGameOver(false);
     setIsPaused(false);
@@ -447,7 +448,17 @@ export default function TetrisGame() {
   useEffect(() => {
     if (!gameStarted || gameOver || isPaused) return;
     let timer: NodeJS.Timeout;
-    const dropInterval = Math.max(50, 1000 - (level - 1) * 100);
+    // 레벨별 속도 완만하게 조정
+    let dropInterval = 1000;
+    if (level <= 9) {
+      dropInterval = 1000 - (level - 1) * 100;
+    } else if (level === 10) {
+      dropInterval = 150;
+    } else if (level === 11) {
+      dropInterval = 100;
+    } else {
+      dropInterval = 50;
+    }
     const loop = () => {
       movePiece(0, 1);
       timer = setTimeout(loop, dropInterval);
@@ -681,7 +692,34 @@ export default function TetrisGame() {
             </div>
             <div className="bg-gray-800 p-1 rounded text-center">
               <h3 className="text-sm font-bold whitespace-nowrap">레벨</h3>
-              <p className="text-lg font-mono text-yellow-400 whitespace-nowrap">{level}</p>
+              <div className="flex items-center justify-center gap-1">
+                {/* ▼ 버튼 */}
+                <button
+                  type="button"
+                  className="px-1 text-yellow-300 disabled:text-gray-500 focus:outline-none"
+                  style={{ fontSize: '1.2em', lineHeight: 1 }}
+                  onClick={() => setStartLevel((prev) => Math.max(1, prev - 1))}
+                  disabled={gameStarted || gameOver || startLevel <= 1}
+                  aria-label="레벨 내리기"
+                >
+                  ▼
+                </button>
+                {/* 레벨 숫자 */}
+                <p className="text-lg font-mono text-yellow-400 whitespace-nowrap min-w-[2.5em] select-none">
+                  {gameStarted ? level : startLevel}
+                </p>
+                {/* ▲ 버튼 */}
+                <button
+                  type="button"
+                  className="px-1 text-yellow-300 disabled:text-gray-500 focus:outline-none"
+                  style={{ fontSize: '1.2em', lineHeight: 1 }}
+                  onClick={() => setStartLevel((prev) => Math.min(30, prev + 1))}
+                  disabled={gameStarted || gameOver || startLevel >= 30}
+                  aria-label="레벨 올리기"
+                >
+                  ▲
+                </button>
+              </div>
             </div>
             <div className="bg-gray-800 p-1 rounded text-center">
               <h3 className="text-sm font-bold whitespace-nowrap">라인</h3>
